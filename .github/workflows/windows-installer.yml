@@ -77,18 +77,19 @@ jobs:
       - name: Build and clean-test installer
         shell: pwsh
         run: |
-          $arguments = @(
-            "-SourceArchive", "releases/relic-auditor-0.8.1.zip",
-            "-ExpectedSourceSha256", $env:RELIC_SOURCE_SHA256,
-            "-OutputDirectory", "release-output"
-          )
           if ("${{ steps.signing.outputs.enabled }}" -eq "true") {
-            $arguments += @(
-              "-SigningCertificate", "${{ steps.signing.outputs.certificate }}",
-              "-SigningPassword", $env:WINDOWS_SIGNING_PFX_PASSWORD
-            )
+            & "installer/windows/build-installer.ps1" `
+              -SourceArchive "releases/relic-auditor-0.8.1.zip" `
+              -ExpectedSourceSha256 $env:RELIC_SOURCE_SHA256 `
+              -OutputDirectory "release-output" `
+              -SigningCertificate "${{ steps.signing.outputs.certificate }}" `
+              -SigningPassword $env:WINDOWS_SIGNING_PFX_PASSWORD
+          } else {
+            & "installer/windows/build-installer.ps1" `
+              -SourceArchive "releases/relic-auditor-0.8.1.zip" `
+              -ExpectedSourceSha256 $env:RELIC_SOURCE_SHA256 `
+              -OutputDirectory "release-output"
           }
-          & "installer/windows/build-installer.ps1" @arguments
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Remove signing certificate
