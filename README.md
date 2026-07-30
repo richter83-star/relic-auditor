@@ -1,8 +1,8 @@
-# Relic Auditor 0.8.1 Windows installer build kit
+# Relic Auditor 0.8.2 Windows installer build kit
 
-This build kit treats `releases/relic-auditor-0.8.1.zip` as an immutable release input. The build fails unless its SHA-256 is:
+This build kit treats `releases/relic-auditor-0.8.2.zip` as an immutable release input. The build fails unless its SHA-256 is:
 
-`a6959b5747287785196f7319cb097f10621fa06df457727546c62edee8bb819a`
+`de4b55657b60074cdf70fc0c01a116c75425324bcdda93f1ec777ae7e3582ff1`
 
 It does not patch or regenerate the Relic analysis engine. On a Windows x64 build host it:
 
@@ -18,7 +18,10 @@ It does not patch or regenerate the Relic analysis engine. On a Windows x64 buil
 
 ## Automated build
 
-The GitHub workflow is the canonical build path. Push this kit to the `installer/v0.8.1` branch or dispatch `Build Relic Auditor Windows Installer` manually.
+The GitHub workflow is the canonical build path. Push this kit to the `installer/v0.8.2` branch or dispatch `Build Relic Auditor Windows Installer` manually.
+
+The source ZIP, wheel, source distribution, release notes, validation record,
+and checksums are under `releases/`.
 
 ## Local Windows build
 

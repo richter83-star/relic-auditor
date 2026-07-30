@@ -1,5 +1,5 @@
 #define AppName "Relic Auditor"
-#define AppVersion "0.8.1"
+#define AppVersion "0.8.2"
 #define AppPublisher "Dracanus AI"
 #define AppURL "https://relic-auditor.briandrichter.chatgpt.site"
 #define BuildRoot GetEnv("RELIC_BUILD_ROOT")
@@ -24,7 +24,7 @@ DefaultGroupName=Relic Auditor
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir={#OutputRoot}
-OutputBaseFilename=Relic-Auditor-Setup-0.8.1-x64
+OutputBaseFilename=Relic-Auditor-Setup-0.8.2-x64
 SetupIconFile={#InstallerRoot}\assets\relic-auditor.ico
 WizardStyle=modern
 WizardImageFile={#InstallerRoot}\assets\wizard-large.bmp
