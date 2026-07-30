@@ -125,6 +125,10 @@ if (Test-Path -LiteralPath $SafeBuildRoot) {
 }
 New-Item -ItemType Directory -Path $SafeBuildRoot | Out-Null
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
+$TestTempRoot = Join-Path $SafeBuildRoot "temp"
+New-Item -ItemType Directory -Path $TestTempRoot | Out-Null
+$env:TEMP = $TestTempRoot
+$env:TMP = $TestTempRoot
 Get-ChildItem -LiteralPath $OutputDirectory -File -ErrorAction SilentlyContinue |
     Where-Object { $_.Name -in @(
         "Relic-Auditor-Setup-0.8.1-x64.exe",

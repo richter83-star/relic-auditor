@@ -47,6 +47,8 @@ def test_clean_install_and_uninstall_are_release_gates() -> None:
     build = (WINDOWS / "build-installer.ps1").read_text(encoding="utf-8")
     for required in (
         "Frozen source hash mismatch",
+        '$env:TEMP = $TestTempRoot',
+        '$env:TMP = $TestTempRoot',
         "bundle-smoke",
         "clean-install",
         "installer-preservation-",
