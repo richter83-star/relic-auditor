@@ -1,80 +1,40 @@
-# Relic Auditor
+# Relic Auditor 0.8.1 Windows installer build kit
 
-Relic Auditor is a local-first, deterministic appraisal CLI for messy software
-estates. It reads folders and ZIP files, detects project types, maps architecture,
-finds byte-identical duplicates, and produces review candidates. It never imports,
-executes, installs, changes, or deletes scanned code.
+This build kit treats `releases/relic-auditor-0.8.1.zip` as an immutable release input. The build fails unless its SHA-256 is:
 
-## Install
+`a6959b5747287785196f7319cb097f10621fa06df457727546c62edee8bb819a`
 
-Python 3.11 or newer is required.
+It does not patch or regenerate the Relic analysis engine. On a Windows x64 build host it:
 
-```bash
-python -m pip install -e .
+1. extracts and verifies the frozen source;
+2. creates an isolated Python 3.12 build environment;
+3. runs the full Relic test suite;
+4. builds separate windowed Evidence Console and console CLI bundles;
+5. smoke-tests audit, acquire, and a real Qt widget tree;
+6. compiles a per-user Inno Setup installer;
+7. installs to a clean location and repeats the CLI/GUI smoke tests;
+8. uninstalls and verifies that user configuration survives and PATH is cleaned;
+9. writes the installer, release manifest, and SHA-256 file.
+
+## Automated build
+
+The GitHub workflow is the canonical build path. Push this kit to the `installer/v0.8.1` branch or dispatch `Build Relic Auditor Windows Installer` manually.
+
+## Local Windows build
+
+Install Python 3.12 x64 and Inno Setup 6, then run from the kit root:
+
+```powershell
+.\installer\windows\build-installer.ps1
 ```
 
-## Run
+The installed application is self-contained; end users do not need Python.
 
-```bash
-relic audit /path/to/messy-folder
-```
+## Optional Authenticode signing
 
-By default, reports are written beside the target as
-`<target-name>-relic-report`. Write them somewhere specific:
+For GitHub Actions, configure:
 
-```bash
-relic audit /path/to/messy-folder --output /path/to/relic-report
-```
+- `WINDOWS_SIGNING_PFX_BASE64`
+- `WINDOWS_SIGNING_PFX_PASSWORD`
 
-Without installation:
-
-```bash
-PYTHONPATH=src python -m relic_auditor audit /path/to/messy-folder
-```
-
-The command creates:
-
-- `estate-report.md`
-- `architecture-map.json`
-- `extract-candidates.json`
-- `archive-candidates.json`
-- `delete-candidates.json`
-- `pivot-suggestions.json`
-
-Delete candidates are advisory. The command has no delete operation.
-
-## What v0.1 detects
-
-- Node.js and common Node frameworks, including Next.js, React, Express,
-  Fastify, NestJS, and Electron
-- Python and FastAPI
-- Docker and Docker Compose
-- Manifests, source, tests, documentation, routes, UI components, data models,
-  migrations, and other assets
-- Safe, virtual ZIP contents
-- Known generated directories, caches, dependency trees, and junk files
-- Byte-identical files
-- Reusable extraction candidates and deterministic pivot patterns
-
-## ZIP safety
-
-ZIP files are never extracted over the target. Relic validates member names and
-inspects safe members virtually. It rejects path traversal, absolute paths,
-symlinks, encrypted entries, excessive member counts, excessive uncompressed
-size, and suspicious compression ratios.
-
-## Determinism and privacy
-
-Reports omit run timestamps and machine-specific absolute target paths. File
-ordering and JSON keys are stable. High-signal previews are bounded, decoded as
-text only when safe, and passed through secret redaction before being written.
-
-This release makes no network calls and has no LLM dependency. The architecture
-map includes a deliberately empty reasoning hook for a later semantic appraisal
-layer.
-
-## Development
-
-```bash
-python -m unittest discover -s tests -v
-```
+If those secrets are absent, the workflow intentionally produces an unsigned internal-test build and records `NotSigned` in `release-manifest.json`.
