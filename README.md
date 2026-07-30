@@ -23,6 +23,13 @@ The GitHub workflow is the canonical build path. Push this kit to the `installer
 The source ZIP, wheel, source distribution, release notes, validation record,
 and checksums are under `releases/`.
 
+The verified Windows x64 installer release files are under
+`releases/v0.8.2/windows/`. The executable is stored as three transport parts;
+run `REASSEMBLE-INSTALLER.ps1` in that directory to reconstruct and verify it.
+The successful Actions run also provides the ready-to-run executable directly.
+This build is unsigned, so Windows SmartScreen may show a warning until a
+trusted Authenticode certificate is configured.
+
 ## Local Windows build
 
 Install Python 3.12 x64 and Inno Setup 6, then run from the kit root:

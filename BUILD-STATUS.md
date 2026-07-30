@@ -10,9 +10,20 @@ The Relic Auditor 0.8.2 Windows installer source and release automation are comp
 - Icon and Inno Setup wizard assets render correctly.
 - No Relic analysis-engine file was modified.
 
-## Remaining external build step
+## Windows build result
 
-The final `.exe` must be compiled on 64-bit Windows because PyInstaller is not a cross-compiler. The included GitHub Actions workflow performs that build, runs the full 247-test Relic suite, exercises the bundled and installed GUI/CLI, validates uninstall and configuration preservation, and emits the installer plus SHA-256 and release manifest.
+GitHub Actions run
+[`30589898811`](https://github.com/richter83-star/relic-auditor/actions/runs/30589898811)
+completed successfully on `windows-latest`.
 
-The approved release target is the public `installer/v0.8.2` branch. Publishing
-the branch triggers the canonical Windows build automatically.
+- Installer: `Relic-Auditor-Setup-0.8.2-x64.exe`
+- Size: `69,242,848` bytes
+- SHA-256: `0f1d1efe8375772d8ff23ad959cc96867174e7d0e4becded663933b09927daeb`
+- Source tests: passed
+- Bundled CLI/GUI smoke tests: passed
+- Clean install and installed CLI/GUI smoke tests: passed
+- Uninstall, user-config preservation, and PATH cleanup: passed
+- Authenticode: `NotSigned`
+
+The unsigned build is suitable for internal testing. Windows SmartScreen may
+warn until a trusted signing certificate is configured.
