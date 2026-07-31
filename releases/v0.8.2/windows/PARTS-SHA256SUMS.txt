@@ -1,0 +1,3 @@
+c14596e874c0c74731f50f1c97d5131039e63b948d0e309c9657adce50d96a2d  Relic-Auditor-Setup-0.8.2-x64.exe.parts/part-000.part
+9ee8385d16c82fd0a0662463aabebf3a19bb4eff14bb7e1bc5f1bef9ddd402b3  Relic-Auditor-Setup-0.8.2-x64.exe.parts/part-001.part
+6c4f489d3bb6b1a217415d06cbfd155e33d398fc46428710952a571b98c4c0f3  Relic-Auditor-Setup-0.8.2-x64.exe.parts/part-002.part

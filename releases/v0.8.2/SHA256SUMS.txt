@@ -1,0 +1,4 @@
+de4b55657b60074cdf70fc0c01a116c75425324bcdda93f1ec777ae7e3582ff1  releases/relic-auditor-0.8.2.zip
+26cd61f2e6d9e546339b057d711a9d0e209d9fd04d71594127fe5e535f68a979  releases/v0.8.2/relic_auditor-0.8.2-py3-none-any.whl
+4c6530bc2dcd5881df98b9ce353beb570b483e642769dbe1fe5c3775f8d7d801  releases/v0.8.2/relic_auditor-0.8.2.tar.gz
+0f1d1efe8375772d8ff23ad959cc96867174e7d0e4becded663933b09927daeb  releases/v0.8.2/windows/Relic-Auditor-Setup-0.8.2-x64.exe

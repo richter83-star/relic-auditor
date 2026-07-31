@@ -1,0 +1,21 @@
+{
+  "product": "Relic Auditor",
+  "version": "0.8.2",
+  "architecture": "x64",
+  "minimum_windows_build": "10.0.17763",
+  "source_archive": "relic-auditor-0.8.2.zip",
+  "source_sha256": "de4b55657b60074cdf70fc0c01a116c75425324bcdda93f1ec777ae7e3582ff1",
+  "installer": "Relic-Auditor-Setup-0.8.2-x64.exe",
+  "installer_sha256": "0f1d1efe8375772d8ff23ad959cc96867174e7d0e4becded663933b09927daeb",
+  "installer_size_bytes": 69242848,
+  "authenticode_status": "NotSigned",
+  "python_bundled": true,
+  "python_required_on_target": false,
+  "source_tests_run": true,
+  "bundled_cli_smoke": "passed",
+  "bundled_gui_smoke": "passed",
+  "clean_install_smoke": "passed",
+  "uninstall_preserved_user_config": true,
+  "cli_path_cleanup": "passed",
+  "pyinstaller": "6.21.0"
+}
