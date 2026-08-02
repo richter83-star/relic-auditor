@@ -148,6 +148,8 @@ $ProjectMetadata = Get-Content -LiteralPath (Join-Path $SourceRoot "pyproject.to
 if ($ProjectMetadata -notmatch '(?m)^version = "0\.8\.3"$') {
     throw "The source archive does not identify itself as Relic Auditor 0.8.3."
 }
+$FrozenSourceTestExclusion = "tests/test_dashboard.py::DashboardCoreTests::test_automatic_report_hierarchy_and_history"
+$FrozenSourceTestExclusionReason = "The immutable v0.8.3 fixture creates a Windows-invalid colon path; the corrected repository test runs before the frozen-source suite."
 
 $Launcher = Get-PythonLauncher
 $VenvRoot = Join-Path $SafeBuildRoot "venv"
@@ -159,7 +161,11 @@ Invoke-Checked -Command $VenvPython -Arguments @("-m", "pip", "install", "--disa
 Invoke-Checked -Command $VenvPython -Arguments @("-m", "pytest", "-q", (Join-Path $KitRoot "tests"))
 
 if (-not $SkipSourceTests) {
-    Invoke-Checked -Command $VenvPython -Arguments @("-m", "pytest", "-q", (Join-Path $SourceRoot "tests"))
+    $FrozenSourceTestNodeId = (Join-Path $SourceRoot "tests\\test_dashboard.py") + "::DashboardCoreTests::test_automatic_report_hierarchy_and_history"
+    Invoke-Checked -Command $VenvPython -Arguments @(
+        "-m", "pytest", "-q", (Join-Path $SourceRoot "tests"),
+        "--deselect", $FrozenSourceTestNodeId
+    )
 }
 $VersionOutput = (& $VenvPython "-m" "relic_auditor" "--version" 2>&1 | Out-String).Trim()
 if ($LASTEXITCODE -ne 0 -or $VersionOutput -ne "relic 0.8.3") {
@@ -287,6 +293,8 @@ $Manifest = [ordered]@{
     python_bundled = $true
     python_required_on_target = $false
     source_tests_run = (-not $SkipSourceTests.IsPresent)
+    source_test_exclusions = if ($SkipSourceTests.IsPresent) { @() } else { @($FrozenSourceTestExclusion) }
+    source_test_exclusion_reason = if ($SkipSourceTests.IsPresent) { "" } else { $FrozenSourceTestExclusionReason }
     bundled_cli_smoke = "passed"
     bundled_gui_smoke = "passed"
     clean_install_smoke = "passed"

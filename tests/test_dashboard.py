@@ -176,7 +176,6 @@ class DashboardCoreTests(unittest.TestCase):
             root = Path(temporary)
             reports = default_reports_root(root / "Documents")
             target = root / 'Powerhouse: Core'
-            target.mkdir()
             destination = automatic_report_directory(
                 target,
                 reports,

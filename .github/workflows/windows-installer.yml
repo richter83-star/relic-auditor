@@ -9,6 +9,7 @@ on:
       - ".github/workflows/windows-installer.yml"
       - "installer/windows/**"
       - "releases/relic-auditor-0.8.3.zip"
+      - "tests/**"
 
 permissions:
   contents: read
