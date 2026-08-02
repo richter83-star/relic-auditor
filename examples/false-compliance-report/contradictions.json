@@ -1,0 +1,83 @@
+{
+  "contradictions": [
+    {
+      "capability_id": "capability_e22d80d977de6ff4",
+      "claim": "Documentation claims report-related behavior.",
+      "confidence": 0.86,
+      "contradiction_id": "contradiction_116793bb7a4cccca",
+      "evidence": [
+        "README.md"
+      ],
+      "evidence_strength": "strong",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "severity": "material",
+      "technical_finding": "Report generation and delivery is classified as implemented but disconnected based on static production-path evidence; scanned code was not executed."
+    },
+    {
+      "capability_id": "capability_0dfe99e2bdbd3dcb",
+      "claim": "Documentation claims compliance-related behavior.",
+      "confidence": 0.86,
+      "contradiction_id": "contradiction_33a493ddc7f1f488",
+      "evidence": [
+        "README.md"
+      ],
+      "evidence_strength": "strong",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "severity": "material",
+      "technical_finding": "Rule-based evaluation is classified as implemented but disconnected based on static production-path evidence; scanned code was not executed."
+    },
+    {
+      "capability_id": "capability_c2750447ccba4184",
+      "claim": "Documentation claims billing-related behavior.",
+      "confidence": 0.86,
+      "contradiction_id": "contradiction_52216e3a9a7c6eee",
+      "evidence": [
+        "README.md"
+      ],
+      "evidence_strength": "strong",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "severity": "material",
+      "technical_finding": "Subscription billing is classified as configuration only based on static production-path evidence; scanned code was not executed."
+    },
+    {
+      "capability_id": null,
+      "claim": "Documentation claims automat-related behavior.",
+      "confidence": 0.86,
+      "contradiction_id": "contradiction_9e3f3e2f806360a1",
+      "evidence": [
+        "README.md"
+      ],
+      "evidence_strength": "strong",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "severity": "material",
+      "technical_finding": "No substantive implementation was found in the same project family."
+    },
+    {
+      "capability_id": null,
+      "claim": "Documentation claims monitor-related behavior.",
+      "confidence": 0.86,
+      "contradiction_id": "contradiction_b2b6c7c750654f03",
+      "evidence": [
+        "README.md"
+      ],
+      "evidence_strength": "strong",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "severity": "material",
+      "technical_finding": "No substantive implementation was found in the same project family."
+    },
+    {
+      "capability_id": null,
+      "claim": "A user-visible surface presents result data.",
+      "confidence": 0.9,
+      "contradiction_id": "contradiction_fe4c514f91f53ed9",
+      "evidence": [
+        "dashboard.tsx"
+      ],
+      "evidence_strength": "strong",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "severity": "material",
+      "technical_finding": "The surface contains mock or fixture data."
+    }
+  ],
+  "schema_version": "1.0"
+}

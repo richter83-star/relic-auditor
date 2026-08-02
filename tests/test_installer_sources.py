@@ -7,8 +7,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WINDOWS = ROOT / "installer" / "windows"
-SOURCE = ROOT / "releases" / "relic-auditor-0.8.2.zip"
-EXPECTED_SOURCE_SHA256 = "de4b55657b60074cdf70fc0c01a116c75425324bcdda93f1ec777ae7e3582ff1"
+SOURCE = ROOT / "releases" / "relic-auditor-0.8.3.zip"
+EXPECTED_SOURCE_SHA256 = "1f3a20833ff454c08a681a1fb6dc6dfd8888992f7383045544dc98d0b5ba794f"
 
 
 def test_frozen_source_is_exact_release() -> None:
@@ -61,7 +61,7 @@ def test_clean_install_and_uninstall_are_release_gates() -> None:
 def test_workflow_uses_windows_and_only_frozen_source() -> None:
     workflow = (ROOT / ".github" / "workflows" / "windows-installer.yml").read_text(encoding="utf-8")
     assert "runs-on: windows-latest" in workflow
-    assert "releases/relic-auditor-0.8.2.zip" in workflow
+    assert "releases/relic-auditor-0.8.3.zip" in workflow
     assert EXPECTED_SOURCE_SHA256 in workflow
     assert "actions/upload-artifact@v4" in workflow
     assert re.search(r"WINDOWS_SIGNING_PFX_BASE64.*secrets", workflow)

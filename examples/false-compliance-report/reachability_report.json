@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0",
+  "symbols": [
+    {
+      "confidence": 0.65,
+      "file": "schema.py",
+      "incoming_edges": 0,
+      "name": "Finding",
+      "status": "unreferenced",
+      "symbol_id": "sym_2d83f3f9e74efda2"
+    },
+    {
+      "confidence": 0.65,
+      "file": "schema.py",
+      "incoming_edges": 0,
+      "name": "Report",
+      "status": "unreferenced",
+      "symbol_id": "sym_33d7833ce2033bcf"
+    },
+    {
+      "confidence": 0.9,
+      "file": "app.py",
+      "incoming_edges": 1,
+      "name": "upload_document",
+      "status": "verified_referenced",
+      "symbol_id": "sym_486abb8e5ca7fe57"
+    },
+    {
+      "confidence": 0.9,
+      "file": "service.py",
+      "incoming_edges": 1,
+      "name": "create_analysis",
+      "status": "verified_referenced",
+      "symbol_id": "sym_51aa127483e62c54"
+    },
+    {
+      "confidence": 0.9,
+      "file": "tests/test_evaluator.py",
+      "incoming_edges": 0,
+      "name": "test_evaluator_with_mock_rule",
+      "status": "test_only",
+      "symbol_id": "sym_54c69b3ecdde65c0"
+    },
+    {
+      "confidence": 0.9,
+      "file": "app.py",
+      "incoming_edges": 1,
+      "name": "login",
+      "status": "verified_referenced",
+      "symbol_id": "sym_57af45d080150c7d"
+    },
+    {
+      "confidence": 0.65,
+      "file": "dashboard.tsx",
+      "incoming_edges": 0,
+      "name": "ReportDashboard",
+      "status": "unreferenced",
+      "symbol_id": "sym_af5214c7eeec1604"
+    },
+    {
+      "confidence": 0.65,
+      "file": "schema.py",
+      "incoming_edges": 0,
+      "name": "Document",
+      "status": "unreferenced",
+      "symbol_id": "sym_c4f80ddfc8c97e85"
+    },
+    {
+      "confidence": 0.9,
+      "file": "evaluator.py",
+      "incoming_edges": 1,
+      "name": "evaluate_policy",
+      "status": "test_only",
+      "symbol_id": "sym_d3a2512aa9a78711"
+    },
+    {
+      "confidence": 0.65,
+      "file": "report.py",
+      "incoming_edges": 0,
+      "name": "generate_pdf_report",
+      "status": "unreferenced",
+      "symbol_id": "sym_fbc1662ea0e90335"
+    }
+  ]
+}

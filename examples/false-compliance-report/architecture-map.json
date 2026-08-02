@@ -1,0 +1,94 @@
+{
+  "archives": [],
+  "duplicate_groups": [],
+  "extensions": {
+    ".md": 1,
+    ".py": 7,
+    ".tsx": 1,
+    ".txt": 1
+  },
+  "file_roles": {
+    "UI/component": 1,
+    "data model": 1,
+    "documentation": 1,
+    "manifest/configuration": 1,
+    "source": 5,
+    "test": 1
+  },
+  "projects": [
+    {
+      "appraisal_category": "Valuable system",
+      "appraisal_reasons": [
+        "substantive source tree",
+        "tests present",
+        "documentation present",
+        "application framework detected"
+      ],
+      "appraisal_score": 65,
+      "documentation_files": 1,
+      "kinds": [
+        "FastAPI",
+        "Python"
+      ],
+      "manifests": [
+        "requirements.txt"
+      ],
+      "root": ".",
+      "signals": [
+        "app.py imports FastAPI",
+        "requirements.txt",
+        "requirements.txt declares FastAPI"
+      ],
+      "source_files": 7,
+      "test_files": 1
+    }
+  ],
+  "reasoning": {
+    "llm_hook": null,
+    "mode": "deterministic",
+    "note": "A future reasoning provider may consume this map; no model is called in v0.1."
+  },
+  "sampled_high_signal_files": [
+    {
+      "path": "README.md",
+      "preview": "# Complete Compliance Cloud\n\nProduction-ready compliance automation with automated PDF reporting,\nsubscription billing, and continuous monitoring.\n",
+      "size": 147,
+      "source": "filesystem",
+      "truncated": false
+    },
+    {
+      "path": "app.py",
+      "preview": "from fastapi import FastAPI\nfrom service import create_analysis\n\napp = FastAPI()\n\n@app.post(\"/api/login\")\ndef login():\n    return {\"token\": \"demo\"}\n\n@app.post(\"/api/documents\")\ndef upload_document(document):\n    return create_analysis(document)\n",
+      "size": 245,
+      "source": "filesystem",
+      "truncated": false
+    },
+    {
+      "path": "requirements.txt",
+      "preview": "fastapi\nstripe\n",
+      "size": 15,
+      "source": "filesystem",
+      "truncated": false
+    },
+    {
+      "path": "schema.py",
+      "preview": "class Document(Base):\n    id: int\n\nclass Finding(Base):\n    id: int\n\nclass Report(Base):\n    id: int\n",
+      "size": 101,
+      "source": "filesystem",
+      "truncated": false
+    }
+  ],
+  "scan_mode": "deterministic-read-only",
+  "schema_version": "1.0",
+  "summary": {
+    "archives": 0,
+    "files_observed": 10,
+    "filesystem_files": 10,
+    "ignored_entries": 2,
+    "projects": 1,
+    "warnings": 0,
+    "zip_members": 0
+  },
+  "target_name": "false_compliance",
+  "warnings": []
+}

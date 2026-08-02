@@ -28,8 +28,8 @@ def appraise(
         elif project.source_files:
             score += 10
             reasons.append("some source code")
-        if project.test_files:
-            score += min(20, 5 + project.test_files)
+        if project.test_files and project.source_files:
+            score += min(8, 2 + project.test_files)
             reasons.append("tests present")
         if project.documentation_files:
             score += 10

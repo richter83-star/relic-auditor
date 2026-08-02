@@ -115,10 +115,16 @@ def detect_projects(files: list[FileRecord]) -> list[ProjectRecord]:
                 kinds=sorted(info["kinds"]),  # type: ignore[arg-type]
                 signals=sorted(info["signals"]),  # type: ignore[arg-type]
                 manifests=sorted(info["manifests"]),  # type: ignore[arg-type]
-                source_files=sum(record.extension in SOURCE_EXTENSIONS for record in scoped),
+                source_files=sum(
+                    record.extension in SOURCE_EXTENSIONS
+                    and not _is_test(record.path)
+                    for record in scoped
+                ),
                 test_files=sum(_is_test(record.path) for record in scoped),
                 documentation_files=sum(
-                    PurePosixPath(record.path).suffix.lower() in {".md", ".rst"} for record in scoped
+                    PurePosixPath(record.path).suffix.lower() in {".md", ".rst"}
+                    and not _is_test(record.path)
+                    for record in scoped
                 ),
             )
         )

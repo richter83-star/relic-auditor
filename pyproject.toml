@@ -4,13 +4,19 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "relic-auditor"
-version = "0.1.0"
+version = "0.8.3"
 description = "A deterministic, local-first appraisal tool for messy software estates."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{ name = "Dracanus AI" }]
 dependencies = []
+
+[project.optional-dependencies]
+gui = ["PySide6>=6.7,<7"]
+llm = ["keyring>=25,<27"]
+all = ["PySide6>=6.7,<7", "keyring>=25,<27"]
 
 [project.scripts]
 relic = "relic_auditor.cli:main"
@@ -24,3 +30,4 @@ where = ["src"]
 [tool.pytest.ini_options]
 addopts = "-q"
 testpaths = ["tests"]
+norecursedirs = ["tests/fixtures"]
