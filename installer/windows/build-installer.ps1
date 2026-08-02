@@ -161,10 +161,9 @@ Invoke-Checked -Command $VenvPython -Arguments @("-m", "pip", "install", "--disa
 Invoke-Checked -Command $VenvPython -Arguments @("-m", "pytest", "-q", (Join-Path $KitRoot "tests"))
 
 if (-not $SkipSourceTests) {
-    $FrozenSourceTestNodeId = (Join-Path $SourceRoot "tests\test_dashboard.py") + "::DashboardCoreTests::test_automatic_report_hierarchy_and_history"
     Invoke-Checked -Command $VenvPython -Arguments @(
         "-m", "pytest", "-q", (Join-Path $SourceRoot "tests"),
-        "--deselect", $FrozenSourceTestNodeId
+        "-k", "not test_automatic_report_hierarchy_and_history"
     )
 }
 $VersionOutput = (& $VenvPython "-m" "relic_auditor" "--version" 2>&1 | Out-String).Trim()
