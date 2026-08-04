@@ -1,0 +1,66 @@
+{
+  "analysis_status": "complete",
+  "capabilities_detected": 6,
+  "conclusion_gate": {
+    "blocking_reasons": [],
+    "minimum_coverage": 0.6,
+    "negative_conclusions_allowed": true,
+    "status": "eligible"
+  },
+  "contradictions_detected": 6,
+  "coverage": {
+    "blocking_reasons": [],
+    "blocking_status_counts": {},
+    "conclusion_status": "eligible",
+    "considered_files": 8,
+    "frameworks": [
+      "FastAPI"
+    ],
+    "languages": {
+      "python": 7,
+      "typescript": 1
+    },
+    "parser_failures": 0,
+    "project_families": {
+      "family_cdb4ee2aea69cc6a": {
+        "blocking_reasons": [],
+        "blocking_status_counts": {},
+        "conclusion_status": "eligible",
+        "considered_files": 8,
+        "parser_failures": 0,
+        "ratio": 1.0,
+        "supported_files": 8
+      }
+    },
+    "ratio": 1.0,
+    "supported_files": 8
+  },
+  "data_flow_truncated": false,
+  "engine_version": "0.4.1",
+  "files_considered": 8,
+  "files_parsed": 8,
+  "files_partially_parsed": 0,
+  "files_unsupported": 0,
+  "graph_truncated": false,
+  "limitations": [
+    "JavaScript and TypeScript use a deterministic in-process token AST, not a full compiler type checker.",
+    "Dynamic dispatch, reflection, generated code, dependency injection, and cross-language calls can remain unresolved.",
+    "Static reachability is evidence, not proof of runtime behavior.",
+    "Persistent cache accelerates unchanged parsing but does not make dynamic behavior observable."
+  ],
+  "parser_failures": 0,
+  "partial_workflows": 2,
+  "project_family_count": 1,
+  "relationships_detected": 29,
+  "safety": {
+    "external_upload_performed": false,
+    "source_executed": false,
+    "source_modified": false
+  },
+  "scan_id": "93413dffb9fc78c7",
+  "schema_version": "1.0",
+  "symbols_detected": 10,
+  "verified_capabilities": 0,
+  "verified_workflows": 0,
+  "workflows_detected": 2
+}

@@ -1,0 +1,40 @@
+{
+  "project_families": [
+    {
+      "canonical_hint": ".",
+      "confidence": 0.7,
+      "divergence_preserved": true,
+      "evidence": {
+        "git_lineage": [],
+        "normalized_name": ".",
+        "shared_file_hashes": [
+          "082229b0139f596bc440d6e8b356b9e2402e31687ca89559ceea3922fc5f86b3",
+          "1652f7026e334b22596234edc7636a7f69e8e41e57c0bcaf54be3afe7512c920",
+          "1fab997544cb6ed20f0b4841c728a41d851041794532bc2fcd3df085a891c8ca",
+          "7fd04b24ba855d12e2ace5dbda42c40cdb0b63cf20a868d608e67f47b3137391",
+          "8be22e02bc10487b18d2af527b927362dfcd25a0235a5d569c5933e22034ecc9",
+          "b950e8ad405146408e6cf56786cd83a6db085358a6060c09f442c7671bd96c51",
+          "c263daa12c71aa93c11e39dee3ff699e7b18aee902e7d084cca86160a4d2b095",
+          "c5057897698d913aab9bd9bffbb82690600cd1cfafeea2f7297de63a866e5223",
+          "d0b35d21b45caa8226b62d608170fbb1f23d221dc18eb551ae8451dda6f0e9dd",
+          "e5c03e615e3241efb7d981156d8dc398d10e1d6f4f9aa9680814e91470cb9360"
+        ]
+      },
+      "family_id": "family_cdb4ee2aea69cc6a",
+      "family_timeline": [
+        {
+          "branch": null,
+          "head": null,
+          "member": "."
+        }
+      ],
+      "members": [
+        "."
+      ],
+      "merge_recommendation": "No automatic merge recommended; compare unique capabilities and compatibility first.",
+      "relationship": "independent_project",
+      "schema_version": "1.0"
+    }
+  ],
+  "schema_version": "1.0"
+}

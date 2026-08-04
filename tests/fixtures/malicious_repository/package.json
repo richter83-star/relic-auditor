@@ -1,0 +1,1 @@
+{"name":"unsafe-looking","scripts":{"postinstall":"node install.js","test":"node exploit.js"}}

@@ -1,0 +1,504 @@
+{
+  "data_flow_edge_limit": 50000,
+  "data_flow_truncated": false,
+  "edges": [
+    {
+      "confidence": 0.94,
+      "edge_id": "edge_2fdbf9d3f521da40",
+      "extraction_method": "framework_pattern",
+      "observation_type": "direct",
+      "source": "endpoint_4efeb026aff90cc5",
+      "target": "sym_57af45d080150c7d",
+      "type": "routes_to"
+    },
+    {
+      "confidence": 0.94,
+      "edge_id": "edge_cc2250fd27d85b68",
+      "extraction_method": "framework_pattern",
+      "observation_type": "direct",
+      "source": "endpoint_fde47a4527b7a71d",
+      "target": "sym_486abb8e5ca7fe57",
+      "type": "routes_to"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_8e2e0840d79b9084",
+      "extraction_method": "parser",
+      "observation_type": "direct",
+      "source": "file_0739ad88c5b27aea",
+      "target": "sym_54c69b3ecdde65c0",
+      "type": "defines"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_816d79da573db198",
+      "extraction_method": "framework_pattern",
+      "observation_type": "direct",
+      "source": "file_38de450109f1e656",
+      "target": "schema_9086c623325ced63",
+      "type": "contains"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_19ffb4ee8d6da1e1",
+      "extraction_method": "framework_pattern",
+      "observation_type": "direct",
+      "source": "file_38de450109f1e656",
+      "target": "schema_a803e3fefc36262a",
+      "type": "contains"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_62c144adf4108c6d",
+      "extraction_method": "framework_pattern",
+      "observation_type": "direct",
+      "source": "file_38de450109f1e656",
+      "target": "schema_d5a76eec4331f6d9",
+      "type": "contains"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_f4e09e832adedbf2",
+      "extraction_method": "parser",
+      "observation_type": "direct",
+      "source": "file_38de450109f1e656",
+      "target": "sym_2d83f3f9e74efda2",
+      "type": "defines"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_248cfe7d77a3df59",
+      "extraction_method": "parser",
+      "observation_type": "direct",
+      "source": "file_38de450109f1e656",
+      "target": "sym_33d7833ce2033bcf",
+      "type": "defines"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_03342f4b22af90a8",
+      "extraction_method": "parser",
+      "observation_type": "direct",
+      "source": "file_38de450109f1e656",
+      "target": "sym_c4f80ddfc8c97e85",
+      "type": "defines"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_2b89ecacb0d82a0d",
+      "extraction_method": "framework_pattern",
+      "observation_type": "direct",
+      "source": "file_3a47b4c168e35e57",
+      "target": "producer_24503e537faf2c97",
+      "type": "contains"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_4d6056adaf7453a0",
+      "extraction_method": "parser",
+      "observation_type": "direct",
+      "source": "file_3a47b4c168e35e57",
+      "target": "sym_51aa127483e62c54",
+      "type": "defines"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_7e920a1c04943cff",
+      "extraction_method": "framework_pattern",
+      "observation_type": "direct",
+      "source": "file_4275264ca642c789",
+      "target": "integration_efb625fc47b2b3a6",
+      "type": "contains"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_93fe9e908f1107d1",
+      "extraction_method": "framework_pattern",
+      "observation_type": "direct",
+      "source": "file_568470d013cd12e4",
+      "target": "endpoint_4efeb026aff90cc5",
+      "type": "contains"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_8c4abc9760055542",
+      "extraction_method": "framework_pattern",
+      "observation_type": "direct",
+      "source": "file_568470d013cd12e4",
+      "target": "endpoint_fde47a4527b7a71d",
+      "type": "contains"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_b69c37c46ec2e7ed",
+      "extraction_method": "framework_pattern",
+      "observation_type": "direct",
+      "source": "file_568470d013cd12e4",
+      "target": "framework_c43af04033494552",
+      "type": "contains"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_cfbac7f43e32c352",
+      "extraction_method": "parser",
+      "observation_type": "direct",
+      "source": "file_568470d013cd12e4",
+      "target": "sym_486abb8e5ca7fe57",
+      "type": "defines"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_952d4daa76edcd9c",
+      "extraction_method": "parser",
+      "observation_type": "direct",
+      "source": "file_568470d013cd12e4",
+      "target": "sym_57af45d080150c7d",
+      "type": "defines"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_c3cb10598d7ed9e6",
+      "extraction_method": "parser",
+      "observation_type": "direct",
+      "source": "file_83a9b05d8a20fb6b",
+      "target": "sym_d3a2512aa9a78711",
+      "type": "defines"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_ad748287ea9954c7",
+      "extraction_method": "parser",
+      "observation_type": "direct",
+      "source": "file_c446ee45576e598a",
+      "target": "sym_af5214c7eeec1604",
+      "type": "defines"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_b0553cfafb83ffef",
+      "extraction_method": "framework_pattern",
+      "observation_type": "direct",
+      "source": "file_c446ee45576e598a",
+      "target": "ui-screen_8975d4b312fc2e33",
+      "type": "contains"
+    },
+    {
+      "confidence": 1.0,
+      "edge_id": "edge_38b9ef9612587117",
+      "extraction_method": "parser",
+      "observation_type": "direct",
+      "source": "file_cc6f62d365261a68",
+      "target": "sym_fbc1662ea0e90335",
+      "type": "defines"
+    },
+    {
+      "confidence": 0.82,
+      "edge_id": "edge_dd950a86f423db3c",
+      "extraction_method": "same_symbol_body",
+      "observation_type": "direct",
+      "source": "sym_486abb8e5ca7fe57",
+      "target": "framework_c43af04033494552",
+      "type": "uses"
+    },
+    {
+      "arguments": [
+        "document"
+      ],
+      "confidence": 0.58,
+      "edge_id": "edge_85ebba74dab8af5a",
+      "extraction_method": "unique_family_symbol_heuristic",
+      "observation_type": "heuristic",
+      "source": "sym_486abb8e5ca7fe57",
+      "target": "sym_51aa127483e62c54",
+      "target_parameters": [
+        "document"
+      ],
+      "type": "calls"
+    },
+    {
+      "confidence": 0.58,
+      "edge_id": "edge_6e324a7bba7f0cfe",
+      "extraction_method": "unique_family_symbol_heuristic",
+      "mapping": [
+        {
+          "argument": "document",
+          "parameter": "document"
+        }
+      ],
+      "observation_type": "heuristic",
+      "source": "sym_486abb8e5ca7fe57",
+      "target": "sym_51aa127483e62c54",
+      "type": "passes_data"
+    },
+    {
+      "confidence": 0.82,
+      "edge_id": "edge_c8bc3ed9bc89389d",
+      "extraction_method": "same_symbol_body",
+      "observation_type": "direct",
+      "source": "sym_51aa127483e62c54",
+      "target": "producer_24503e537faf2c97",
+      "type": "produces"
+    },
+    {
+      "arguments": [
+        "[rule]",
+        "{}"
+      ],
+      "confidence": 0.58,
+      "edge_id": "edge_24364865abc445f1",
+      "extraction_method": "unique_family_symbol_heuristic",
+      "observation_type": "heuristic",
+      "source": "sym_54c69b3ecdde65c0",
+      "target": "sym_d3a2512aa9a78711",
+      "target_parameters": [
+        "document",
+        "rules"
+      ],
+      "type": "calls"
+    },
+    {
+      "confidence": 0.58,
+      "edge_id": "edge_ac605a5ce641e4ef",
+      "extraction_method": "unique_family_symbol_heuristic",
+      "mapping": [
+        {
+          "argument": "[rule]",
+          "parameter": "document"
+        },
+        {
+          "argument": "{}",
+          "parameter": "rules"
+        }
+      ],
+      "observation_type": "heuristic",
+      "source": "sym_54c69b3ecdde65c0",
+      "target": "sym_d3a2512aa9a78711",
+      "type": "passes_data"
+    },
+    {
+      "confidence": 0.82,
+      "edge_id": "edge_e327f16d6981d22b",
+      "extraction_method": "same_symbol_body",
+      "observation_type": "direct",
+      "source": "sym_af5214c7eeec1604",
+      "target": "ui-screen_8975d4b312fc2e33",
+      "type": "uses"
+    },
+    {
+      "confidence": 0.82,
+      "edge_id": "edge_7711db3142087ff2",
+      "extraction_method": "same_symbol_body",
+      "observation_type": "direct",
+      "source": "sym_c4f80ddfc8c97e85",
+      "target": "schema_9086c623325ced63",
+      "type": "persists"
+    }
+  ],
+  "node_limit": 100000,
+  "nodes": [
+    {
+      "file": "app.py",
+      "id": "endpoint_4efeb026aff90cc5",
+      "name": "/api/login",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "endpoint"
+    },
+    {
+      "file": "app.py",
+      "id": "endpoint_fde47a4527b7a71d",
+      "name": "/api/documents",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "endpoint"
+    },
+    {
+      "id": "family_cdb4ee2aea69cc6a",
+      "type": "project_family"
+    },
+    {
+      "id": "file_0739ad88c5b27aea",
+      "path": "tests/test_evaluator.py",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "file"
+    },
+    {
+      "id": "file_38de450109f1e656",
+      "path": "schema.py",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "file"
+    },
+    {
+      "id": "file_3a47b4c168e35e57",
+      "path": "service.py",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "file"
+    },
+    {
+      "id": "file_4275264ca642c789",
+      "path": "billing.py",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "file"
+    },
+    {
+      "id": "file_568470d013cd12e4",
+      "path": "app.py",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "file"
+    },
+    {
+      "id": "file_83a9b05d8a20fb6b",
+      "path": "evaluator.py",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "file"
+    },
+    {
+      "id": "file_c446ee45576e598a",
+      "path": "dashboard.tsx",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "file"
+    },
+    {
+      "id": "file_cc6f62d365261a68",
+      "path": "report.py",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "file"
+    },
+    {
+      "file": "app.py",
+      "id": "framework_c43af04033494552",
+      "name": "FastAPI",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "framework"
+    },
+    {
+      "file": "requirements.txt",
+      "id": "integration_b1d36c5304169cd8",
+      "name": "stripe",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "integration"
+    },
+    {
+      "file": "billing.py",
+      "id": "integration_efb625fc47b2b3a6",
+      "name": "stripe",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "integration"
+    },
+    {
+      "file": "service.py",
+      "id": "producer_24503e537faf2c97",
+      "name": "analysis",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "queue_producer"
+    },
+    {
+      "file": "schema.py",
+      "id": "schema_9086c623325ced63",
+      "name": "Document",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "schema"
+    },
+    {
+      "file": "schema.py",
+      "id": "schema_a803e3fefc36262a",
+      "name": "Report",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "schema"
+    },
+    {
+      "file": "schema.py",
+      "id": "schema_d5a76eec4331f6d9",
+      "name": "Finding",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "schema"
+    },
+    {
+      "file": "schema.py",
+      "id": "sym_2d83f3f9e74efda2",
+      "name": "Finding",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "stub": false,
+      "type": "class"
+    },
+    {
+      "file": "schema.py",
+      "id": "sym_33d7833ce2033bcf",
+      "name": "Report",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "stub": false,
+      "type": "class"
+    },
+    {
+      "file": "app.py",
+      "id": "sym_486abb8e5ca7fe57",
+      "name": "upload_document",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "stub": false,
+      "type": "function"
+    },
+    {
+      "file": "service.py",
+      "id": "sym_51aa127483e62c54",
+      "name": "create_analysis",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "stub": false,
+      "type": "function"
+    },
+    {
+      "file": "tests/test_evaluator.py",
+      "id": "sym_54c69b3ecdde65c0",
+      "name": "test_evaluator_with_mock_rule",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "stub": false,
+      "type": "function"
+    },
+    {
+      "file": "app.py",
+      "id": "sym_57af45d080150c7d",
+      "name": "login",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "stub": false,
+      "type": "function"
+    },
+    {
+      "file": "dashboard.tsx",
+      "id": "sym_af5214c7eeec1604",
+      "name": "ReportDashboard",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "stub": false,
+      "type": "function"
+    },
+    {
+      "file": "schema.py",
+      "id": "sym_c4f80ddfc8c97e85",
+      "name": "Document",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "stub": false,
+      "type": "class"
+    },
+    {
+      "file": "evaluator.py",
+      "id": "sym_d3a2512aa9a78711",
+      "name": "evaluate_policy",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "stub": false,
+      "type": "function"
+    },
+    {
+      "file": "report.py",
+      "id": "sym_fbc1662ea0e90335",
+      "name": "generate_pdf_report",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "stub": false,
+      "type": "function"
+    },
+    {
+      "file": "dashboard.tsx",
+      "id": "ui-screen_8975d4b312fc2e33",
+      "name": "ReportDashboard",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "type": "ui_screen"
+    }
+  ],
+  "schema_version": "1.0",
+  "truncated": false
+}

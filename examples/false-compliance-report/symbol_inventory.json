@@ -1,0 +1,777 @@
+{
+  "parse_results": [
+    {
+      "adapter": "python-ast-3",
+      "environment_reads": [],
+      "exports": [
+        "login",
+        "upload_document"
+      ],
+      "import_bindings": [
+        {
+          "imported": "FastAPI",
+          "local": "FastAPI",
+          "source": "fastapi"
+        },
+        {
+          "imported": "create_analysis",
+          "local": "create_analysis",
+          "source": "service"
+        }
+      ],
+      "imports": [
+        "fastapi",
+        "service"
+      ],
+      "language": "python",
+      "path": "app.py",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "references": [
+        {
+          "argument_names": [],
+          "caller_name": null,
+          "confidence": 0.94,
+          "kind": "calls",
+          "line": 4,
+          "method": "python_ast",
+          "source_file": "app.py",
+          "string_arguments": [],
+          "target_name": "FastAPI"
+        },
+        {
+          "argument_names": [
+            "'/api/login'"
+          ],
+          "caller_name": "login",
+          "confidence": 0.94,
+          "kind": "calls",
+          "line": 6,
+          "method": "python_ast",
+          "source_file": "app.py",
+          "string_arguments": [
+            "/api/login"
+          ],
+          "target_name": "app.post"
+        },
+        {
+          "argument_names": [
+            "'/api/documents'"
+          ],
+          "caller_name": "upload_document",
+          "confidence": 0.94,
+          "kind": "calls",
+          "line": 10,
+          "method": "python_ast",
+          "source_file": "app.py",
+          "string_arguments": [
+            "/api/documents"
+          ],
+          "target_name": "app.post"
+        },
+        {
+          "argument_names": [
+            "document"
+          ],
+          "caller_name": "upload_document",
+          "confidence": 0.94,
+          "kind": "calls",
+          "line": 12,
+          "method": "python_ast",
+          "source_file": "app.py",
+          "string_arguments": [],
+          "target_name": "create_analysis"
+        }
+      ],
+      "risks": [],
+      "status": "success",
+      "symbols": [
+        {
+          "annotations": [],
+          "confidence": 0.98,
+          "decorators": [
+            "app.post"
+          ],
+          "exported": true,
+          "file": "app.py",
+          "kind": "function",
+          "language": "python",
+          "lines": {
+            "end": 8,
+            "start": 7
+          },
+          "name": "login",
+          "parameters": [],
+          "project_family_id": "family_cdb4ee2aea69cc6a",
+          "qualified_name": "app.login",
+          "return_type": null,
+          "stub": false,
+          "symbol_id": "sym_57af45d080150c7d",
+          "todo": false,
+          "visibility": "public"
+        },
+        {
+          "annotations": [],
+          "confidence": 0.98,
+          "decorators": [
+            "app.post"
+          ],
+          "exported": true,
+          "file": "app.py",
+          "kind": "function",
+          "language": "python",
+          "lines": {
+            "end": 12,
+            "start": 11
+          },
+          "name": "upload_document",
+          "parameters": [
+            "document"
+          ],
+          "project_family_id": "family_cdb4ee2aea69cc6a",
+          "qualified_name": "app.upload_document",
+          "return_type": null,
+          "stub": false,
+          "symbol_id": "sym_486abb8e5ca7fe57",
+          "todo": false,
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "adapter": "python-ast-3",
+      "environment_reads": [],
+      "exports": [],
+      "import_bindings": [],
+      "imports": [],
+      "language": "python",
+      "path": "billing.py",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "references": [],
+      "risks": [],
+      "status": "success",
+      "symbols": []
+    },
+    {
+      "adapter": "js-token-ast-1",
+      "environment_reads": [],
+      "exports": [
+        "ReportDashboard"
+      ],
+      "import_bindings": [],
+      "imports": [],
+      "language": "typescript",
+      "path": "dashboard.tsx",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "references": [
+        {
+          "argument_names": [
+            "mockData"
+          ],
+          "caller_name": "ReportDashboard",
+          "confidence": 0.88,
+          "kind": "calls",
+          "line": 3,
+          "method": "js_token_ast",
+          "source_file": "dashboard.tsx",
+          "string_arguments": [],
+          "target_name": "JSON.stringify"
+        }
+      ],
+      "risks": [],
+      "status": "success",
+      "symbols": [
+        {
+          "annotations": [],
+          "confidence": 0.86,
+          "decorators": [],
+          "exported": true,
+          "file": "dashboard.tsx",
+          "kind": "function",
+          "language": "typescript",
+          "lines": {
+            "end": 4,
+            "start": 2
+          },
+          "name": "ReportDashboard",
+          "parameters": [],
+          "project_family_id": "family_cdb4ee2aea69cc6a",
+          "qualified_name": "dashboard.ReportDashboard",
+          "return_type": null,
+          "stub": false,
+          "symbol_id": "sym_af5214c7eeec1604",
+          "todo": false,
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "adapter": "python-ast-3",
+      "environment_reads": [],
+      "exports": [
+        "evaluate_policy"
+      ],
+      "import_bindings": [],
+      "imports": [],
+      "language": "python",
+      "path": "evaluator.py",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "references": [
+        {
+          "argument_names": [
+            "document"
+          ],
+          "caller_name": "evaluate_policy",
+          "confidence": 0.94,
+          "kind": "calls",
+          "line": 4,
+          "method": "python_ast",
+          "source_file": "evaluator.py",
+          "string_arguments": [],
+          "target_name": "rule.applies"
+        },
+        {
+          "argument_names": [
+            "rule.id"
+          ],
+          "caller_name": "evaluate_policy",
+          "confidence": 0.94,
+          "kind": "calls",
+          "line": 5,
+          "method": "python_ast",
+          "source_file": "evaluator.py",
+          "string_arguments": [],
+          "target_name": "findings.append"
+        }
+      ],
+      "risks": [],
+      "status": "success",
+      "symbols": [
+        {
+          "annotations": [],
+          "confidence": 0.98,
+          "decorators": [],
+          "exported": true,
+          "file": "evaluator.py",
+          "kind": "function",
+          "language": "python",
+          "lines": {
+            "end": 6,
+            "start": 1
+          },
+          "name": "evaluate_policy",
+          "parameters": [
+            "document",
+            "rules"
+          ],
+          "project_family_id": "family_cdb4ee2aea69cc6a",
+          "qualified_name": "evaluator.evaluate_policy",
+          "return_type": null,
+          "stub": false,
+          "symbol_id": "sym_d3a2512aa9a78711",
+          "todo": false,
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "adapter": "python-ast-3",
+      "environment_reads": [],
+      "exports": [
+        "generate_pdf_report"
+      ],
+      "import_bindings": [],
+      "imports": [],
+      "language": "python",
+      "path": "report.py",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "references": [],
+      "risks": [],
+      "status": "success",
+      "symbols": [
+        {
+          "annotations": [],
+          "confidence": 0.98,
+          "decorators": [],
+          "exported": true,
+          "file": "report.py",
+          "kind": "function",
+          "language": "python",
+          "lines": {
+            "end": 2,
+            "start": 1
+          },
+          "name": "generate_pdf_report",
+          "parameters": [
+            "findings"
+          ],
+          "project_family_id": "family_cdb4ee2aea69cc6a",
+          "qualified_name": "report.generate_pdf_report",
+          "return_type": null,
+          "stub": false,
+          "symbol_id": "sym_fbc1662ea0e90335",
+          "todo": false,
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "adapter": "python-ast-3",
+      "environment_reads": [],
+      "exports": [
+        "Document",
+        "Finding",
+        "Report"
+      ],
+      "import_bindings": [],
+      "imports": [],
+      "language": "python",
+      "path": "schema.py",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "references": [],
+      "risks": [],
+      "status": "success",
+      "symbols": [
+        {
+          "annotations": [],
+          "confidence": 0.98,
+          "decorators": [],
+          "exported": true,
+          "file": "schema.py",
+          "kind": "class",
+          "language": "python",
+          "lines": {
+            "end": 2,
+            "start": 1
+          },
+          "name": "Document",
+          "parameters": [],
+          "project_family_id": "family_cdb4ee2aea69cc6a",
+          "qualified_name": "schema.Document",
+          "return_type": null,
+          "symbol_id": "sym_c4f80ddfc8c97e85",
+          "visibility": "public"
+        },
+        {
+          "annotations": [],
+          "confidence": 0.98,
+          "decorators": [],
+          "exported": true,
+          "file": "schema.py",
+          "kind": "class",
+          "language": "python",
+          "lines": {
+            "end": 5,
+            "start": 4
+          },
+          "name": "Finding",
+          "parameters": [],
+          "project_family_id": "family_cdb4ee2aea69cc6a",
+          "qualified_name": "schema.Finding",
+          "return_type": null,
+          "symbol_id": "sym_2d83f3f9e74efda2",
+          "visibility": "public"
+        },
+        {
+          "annotations": [],
+          "confidence": 0.98,
+          "decorators": [],
+          "exported": true,
+          "file": "schema.py",
+          "kind": "class",
+          "language": "python",
+          "lines": {
+            "end": 8,
+            "start": 7
+          },
+          "name": "Report",
+          "parameters": [],
+          "project_family_id": "family_cdb4ee2aea69cc6a",
+          "qualified_name": "schema.Report",
+          "return_type": null,
+          "symbol_id": "sym_33d7833ce2033bcf",
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "adapter": "python-ast-3",
+      "environment_reads": [],
+      "exports": [
+        "create_analysis"
+      ],
+      "import_bindings": [],
+      "imports": [],
+      "language": "python",
+      "path": "service.py",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "references": [
+        {
+          "argument_names": [
+            "document"
+          ],
+          "caller_name": "create_analysis",
+          "confidence": 0.94,
+          "kind": "calls",
+          "line": 2,
+          "method": "python_ast",
+          "source_file": "service.py",
+          "string_arguments": [],
+          "target_name": "db.save"
+        },
+        {
+          "argument_names": [
+            "'analysis'",
+            "document.id"
+          ],
+          "caller_name": "create_analysis",
+          "confidence": 0.94,
+          "kind": "calls",
+          "line": 3,
+          "method": "python_ast",
+          "source_file": "service.py",
+          "string_arguments": [
+            "analysis"
+          ],
+          "target_name": "queue.add"
+        }
+      ],
+      "risks": [],
+      "status": "success",
+      "symbols": [
+        {
+          "annotations": [],
+          "confidence": 0.98,
+          "decorators": [],
+          "exported": true,
+          "file": "service.py",
+          "kind": "function",
+          "language": "python",
+          "lines": {
+            "end": 4,
+            "start": 1
+          },
+          "name": "create_analysis",
+          "parameters": [
+            "document"
+          ],
+          "project_family_id": "family_cdb4ee2aea69cc6a",
+          "qualified_name": "service.create_analysis",
+          "return_type": null,
+          "stub": false,
+          "symbol_id": "sym_51aa127483e62c54",
+          "todo": false,
+          "visibility": "public"
+        }
+      ]
+    },
+    {
+      "adapter": "python-ast-3",
+      "environment_reads": [],
+      "exports": [
+        "test_evaluator_with_mock_rule"
+      ],
+      "import_bindings": [
+        {
+          "imported": "Mock",
+          "local": "Mock",
+          "source": "unittest.mock"
+        },
+        {
+          "imported": "evaluate_policy",
+          "local": "evaluate_policy",
+          "source": "evaluator"
+        }
+      ],
+      "imports": [
+        "evaluator",
+        "unittest.mock"
+      ],
+      "language": "python",
+      "path": "tests/test_evaluator.py",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "references": [
+        {
+          "argument_names": [],
+          "caller_name": "test_evaluator_with_mock_rule",
+          "confidence": 0.94,
+          "kind": "calls",
+          "line": 5,
+          "method": "python_ast",
+          "source_file": "tests/test_evaluator.py",
+          "string_arguments": [],
+          "target_name": "Mock"
+        },
+        {
+          "argument_names": [
+            "[rule]",
+            "{}"
+          ],
+          "caller_name": "test_evaluator_with_mock_rule",
+          "confidence": 0.94,
+          "kind": "calls",
+          "line": 7,
+          "method": "python_ast",
+          "source_file": "tests/test_evaluator.py",
+          "string_arguments": [],
+          "target_name": "evaluate_policy"
+        }
+      ],
+      "risks": [],
+      "status": "success",
+      "symbols": [
+        {
+          "annotations": [],
+          "confidence": 0.98,
+          "decorators": [],
+          "exported": true,
+          "file": "tests/test_evaluator.py",
+          "kind": "function",
+          "language": "python",
+          "lines": {
+            "end": 7,
+            "start": 4
+          },
+          "name": "test_evaluator_with_mock_rule",
+          "parameters": [],
+          "project_family_id": "family_cdb4ee2aea69cc6a",
+          "qualified_name": "tests.test_evaluator.test_evaluator_with_mock_rule",
+          "return_type": null,
+          "stub": false,
+          "symbol_id": "sym_54c69b3ecdde65c0",
+          "todo": false,
+          "visibility": "public"
+        }
+      ]
+    }
+  ],
+  "schema_version": "1.0",
+  "symbols": [
+    {
+      "annotations": [],
+      "confidence": 0.98,
+      "decorators": [],
+      "exported": true,
+      "file": "schema.py",
+      "kind": "class",
+      "language": "python",
+      "lines": {
+        "end": 5,
+        "start": 4
+      },
+      "name": "Finding",
+      "parameters": [],
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "qualified_name": "schema.Finding",
+      "return_type": null,
+      "symbol_id": "sym_2d83f3f9e74efda2",
+      "visibility": "public"
+    },
+    {
+      "annotations": [],
+      "confidence": 0.98,
+      "decorators": [],
+      "exported": true,
+      "file": "schema.py",
+      "kind": "class",
+      "language": "python",
+      "lines": {
+        "end": 8,
+        "start": 7
+      },
+      "name": "Report",
+      "parameters": [],
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "qualified_name": "schema.Report",
+      "return_type": null,
+      "symbol_id": "sym_33d7833ce2033bcf",
+      "visibility": "public"
+    },
+    {
+      "annotations": [],
+      "confidence": 0.98,
+      "decorators": [
+        "app.post"
+      ],
+      "exported": true,
+      "file": "app.py",
+      "kind": "function",
+      "language": "python",
+      "lines": {
+        "end": 12,
+        "start": 11
+      },
+      "name": "upload_document",
+      "parameters": [
+        "document"
+      ],
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "qualified_name": "app.upload_document",
+      "return_type": null,
+      "stub": false,
+      "symbol_id": "sym_486abb8e5ca7fe57",
+      "todo": false,
+      "visibility": "public"
+    },
+    {
+      "annotations": [],
+      "confidence": 0.98,
+      "decorators": [],
+      "exported": true,
+      "file": "service.py",
+      "kind": "function",
+      "language": "python",
+      "lines": {
+        "end": 4,
+        "start": 1
+      },
+      "name": "create_analysis",
+      "parameters": [
+        "document"
+      ],
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "qualified_name": "service.create_analysis",
+      "return_type": null,
+      "stub": false,
+      "symbol_id": "sym_51aa127483e62c54",
+      "todo": false,
+      "visibility": "public"
+    },
+    {
+      "annotations": [],
+      "confidence": 0.98,
+      "decorators": [],
+      "exported": true,
+      "file": "tests/test_evaluator.py",
+      "kind": "function",
+      "language": "python",
+      "lines": {
+        "end": 7,
+        "start": 4
+      },
+      "name": "test_evaluator_with_mock_rule",
+      "parameters": [],
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "qualified_name": "tests.test_evaluator.test_evaluator_with_mock_rule",
+      "return_type": null,
+      "stub": false,
+      "symbol_id": "sym_54c69b3ecdde65c0",
+      "todo": false,
+      "visibility": "public"
+    },
+    {
+      "annotations": [],
+      "confidence": 0.98,
+      "decorators": [
+        "app.post"
+      ],
+      "exported": true,
+      "file": "app.py",
+      "kind": "function",
+      "language": "python",
+      "lines": {
+        "end": 8,
+        "start": 7
+      },
+      "name": "login",
+      "parameters": [],
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "qualified_name": "app.login",
+      "return_type": null,
+      "stub": false,
+      "symbol_id": "sym_57af45d080150c7d",
+      "todo": false,
+      "visibility": "public"
+    },
+    {
+      "annotations": [],
+      "confidence": 0.86,
+      "decorators": [],
+      "exported": true,
+      "file": "dashboard.tsx",
+      "kind": "function",
+      "language": "typescript",
+      "lines": {
+        "end": 4,
+        "start": 2
+      },
+      "name": "ReportDashboard",
+      "parameters": [],
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "qualified_name": "dashboard.ReportDashboard",
+      "return_type": null,
+      "stub": false,
+      "symbol_id": "sym_af5214c7eeec1604",
+      "todo": false,
+      "visibility": "public"
+    },
+    {
+      "annotations": [],
+      "confidence": 0.98,
+      "decorators": [],
+      "exported": true,
+      "file": "schema.py",
+      "kind": "class",
+      "language": "python",
+      "lines": {
+        "end": 2,
+        "start": 1
+      },
+      "name": "Document",
+      "parameters": [],
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "qualified_name": "schema.Document",
+      "return_type": null,
+      "symbol_id": "sym_c4f80ddfc8c97e85",
+      "visibility": "public"
+    },
+    {
+      "annotations": [],
+      "confidence": 0.98,
+      "decorators": [],
+      "exported": true,
+      "file": "evaluator.py",
+      "kind": "function",
+      "language": "python",
+      "lines": {
+        "end": 6,
+        "start": 1
+      },
+      "name": "evaluate_policy",
+      "parameters": [
+        "document",
+        "rules"
+      ],
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "qualified_name": "evaluator.evaluate_policy",
+      "return_type": null,
+      "stub": false,
+      "symbol_id": "sym_d3a2512aa9a78711",
+      "todo": false,
+      "visibility": "public"
+    },
+    {
+      "annotations": [],
+      "confidence": 0.98,
+      "decorators": [],
+      "exported": true,
+      "file": "report.py",
+      "kind": "function",
+      "language": "python",
+      "lines": {
+        "end": 2,
+        "start": 1
+      },
+      "name": "generate_pdf_report",
+      "parameters": [
+        "findings"
+      ],
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "qualified_name": "report.generate_pdf_report",
+      "return_type": null,
+      "stub": false,
+      "symbol_id": "sym_fbc1662ea0e90335",
+      "todo": false,
+      "visibility": "public"
+    }
+  ]
+}

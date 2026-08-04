@@ -1,0 +1,246 @@
+{
+  "capabilities": [
+    {
+      "capability_id": "cap_62210eef2140",
+      "completion_level": 53,
+      "coupling": "medium",
+      "dependencies": [
+        "FastAPI",
+        "Python"
+      ],
+      "deployment_readiness": "not evidenced",
+      "description": "Accepts and normalizes data or files for downstream work.",
+      "evidence": [
+        "ev_255a5a0ec1d2",
+        "ev_7f3a1a1a3c48"
+      ],
+      "evidence_confidence": 59,
+      "extraction_difficulty": "low",
+      "key": "bulk-ingestion",
+      "name": "Structured data ingestion",
+      "reusability": "medium",
+      "schema_version": "1.0",
+      "security_concerns": [
+        "Requires review of authentication, authorization, input handling, and secret management."
+      ],
+      "supporting_files": [
+        "app.py",
+        "tests/test_evaluator.py"
+      ],
+      "symbols": [],
+      "test_coverage": "present"
+    },
+    {
+      "capability_id": "cap_637d7becb998",
+      "completion_level": 85,
+      "coupling": "medium",
+      "dependencies": [
+        "FastAPI",
+        "Python"
+      ],
+      "deployment_readiness": "not evidenced",
+      "description": "Turns system results into a reviewable report or dashboard.",
+      "evidence": [
+        "ev_360f3bfbda66",
+        "ev_6738ec3f2cca",
+        "ev_849ff7105ab6",
+        "ev_99928290d461"
+      ],
+      "evidence_confidence": 83,
+      "extraction_difficulty": "moderate",
+      "key": "reporting",
+      "name": "Traceable reporting",
+      "reusability": "high",
+      "schema_version": "1.0",
+      "security_concerns": [
+        "Requires review of authentication, authorization, input handling, and secret management."
+      ],
+      "supporting_files": [
+        "dashboard.tsx",
+        "evaluator.py",
+        "report.py",
+        "schema.py"
+      ],
+      "symbols": [
+        "Finding",
+        "generate_pdf_report",
+        "evaluate_policy",
+        "mockData"
+      ],
+      "test_coverage": "not evidenced"
+    },
+    {
+      "capability_id": "cap_efe77b201dc2",
+      "completion_level": 53,
+      "coupling": "medium",
+      "dependencies": [
+        "FastAPI",
+        "Python"
+      ],
+      "deployment_readiness": "not evidenced",
+      "description": "Applies repeatable evaluation or scoring to inputs.",
+      "evidence": [
+        "ev_255a5a0ec1d2",
+        "ev_849ff7105ab6"
+      ],
+      "evidence_confidence": 59,
+      "extraction_difficulty": "low",
+      "key": "evaluation",
+      "name": "Scoring and evaluation",
+      "reusability": "medium",
+      "schema_version": "1.0",
+      "security_concerns": [
+        "Requires review of authentication, authorization, input handling, and secret management."
+      ],
+      "supporting_files": [
+        "evaluator.py",
+        "tests/test_evaluator.py"
+      ],
+      "symbols": [
+        "evaluate_policy"
+      ],
+      "test_coverage": "present"
+    },
+    {
+      "capability_id": "cap_da7f739f6271",
+      "completion_level": 40,
+      "coupling": "medium",
+      "dependencies": [
+        "FastAPI",
+        "Python"
+      ],
+      "deployment_readiness": "not evidenced",
+      "description": "Coordinates multi-step or asynchronous work.",
+      "evidence": [
+        "ev_c6f1b3ec905d"
+      ],
+      "evidence_confidence": 47,
+      "extraction_difficulty": "low",
+      "key": "workflow",
+      "name": "Workflow orchestration",
+      "reusability": "medium",
+      "schema_version": "1.0",
+      "security_concerns": [
+        "Requires review of authentication, authorization, input handling, and secret management."
+      ],
+      "supporting_files": [
+        "service.py"
+      ],
+      "symbols": [],
+      "test_coverage": "not evidenced"
+    },
+    {
+      "capability_id": "cap_29a3e14798aa",
+      "completion_level": 53,
+      "coupling": "medium",
+      "dependencies": [
+        "FastAPI",
+        "Python"
+      ],
+      "deployment_readiness": "not evidenced",
+      "description": "Compares evidence or policies against defined requirements.",
+      "evidence": [
+        "ev_255a5a0ec1d2",
+        "ev_849ff7105ab6"
+      ],
+      "evidence_confidence": 59,
+      "extraction_difficulty": "low",
+      "key": "compliance",
+      "name": "Compliance gap analysis",
+      "reusability": "medium",
+      "schema_version": "1.0",
+      "security_concerns": [
+        "Requires review of authentication, authorization, input handling, and secret management."
+      ],
+      "supporting_files": [
+        "evaluator.py",
+        "tests/test_evaluator.py"
+      ],
+      "symbols": [
+        "evaluate_policy"
+      ],
+      "test_coverage": "present"
+    },
+    {
+      "capability_id": "cap_b9d906284539",
+      "completion_level": 40,
+      "coupling": "medium",
+      "dependencies": [
+        "FastAPI",
+        "Python"
+      ],
+      "deployment_readiness": "not evidenced",
+      "description": "Identifies users and controls access.",
+      "evidence": [
+        "ev_7f3a1a1a3c48"
+      ],
+      "evidence_confidence": 47,
+      "extraction_difficulty": "low",
+      "key": "authentication",
+      "name": "User access control",
+      "reusability": "medium",
+      "schema_version": "1.0",
+      "security_concerns": [
+        "Requires review of authentication, authorization, input handling, and secret management."
+      ],
+      "supporting_files": [
+        "app.py"
+      ],
+      "symbols": [],
+      "test_coverage": "not evidenced"
+    },
+    {
+      "capability_id": "cap_0c95c7ece1ce",
+      "completion_level": 40,
+      "coupling": "medium",
+      "dependencies": [
+        "FastAPI",
+        "Python"
+      ],
+      "deployment_readiness": "not evidenced",
+      "description": "Supports payment, subscription, or invoice workflows.",
+      "evidence": [
+        "ev_0dcc6dbd8d15"
+      ],
+      "evidence_confidence": 47,
+      "extraction_difficulty": "low",
+      "key": "billing",
+      "name": "Commercial billing",
+      "reusability": "medium",
+      "schema_version": "1.0",
+      "security_concerns": [
+        "Requires review of authentication, authorization, input handling, and secret management."
+      ],
+      "supporting_files": [
+        "billing.py"
+      ],
+      "symbols": [],
+      "test_coverage": "not evidenced"
+    }
+  ],
+  "intent_reconstruction": {
+    "actual_implementation_state": "finding, report, evaluate",
+    "apparent_original_product": "Complete Compliance Cloud",
+    "confidence": 0.95,
+    "evidence_references": [
+      "ev_40ba53f1c350"
+    ],
+    "intended_business_model": "Paid software or subscription signals detected",
+    "intended_user": "Not explicit in repository evidence",
+    "intended_workflow": "# Complete Compliance Cloud",
+    "stated_vs_implemented": [
+      "Documentation claims maturity, but the deterministic completeness evidence remains below the crown-jewel threshold."
+    ]
+  },
+  "project_families": [
+    {
+      "canonical_hint": ".",
+      "family_id": "family_cdb4ee2aea69",
+      "members": [
+        "."
+      ],
+      "treat_as_separate_products": true
+    }
+  ],
+  "schema_version": "1.0"
+}

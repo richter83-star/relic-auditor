@@ -1,0 +1,16 @@
+{
+  "llm_hook": null,
+  "reasoning_mode": "deterministic",
+  "schema_version": "1.0",
+  "suggestions": [
+    {
+      "confidence": "medium",
+      "evidence": [
+        "UI components detected",
+        "No strong API routing signal"
+      ],
+      "idea": "Treat the interface work as a reusable component kit or validated product concept.",
+      "title": "Extract a design system or interactive prototype"
+    }
+  ]
+}

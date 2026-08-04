@@ -1,0 +1,196 @@
+{
+  "plans": [
+    {
+      "data_migrations": [
+        "Confirm schema ownership and customer-data boundaries"
+      ],
+      "dependencies_to_remove": [
+        "Dependencies not reached by the proposed workflow"
+      ],
+      "deployment_work": [
+        "Create an isolated deployment or signed local package"
+      ],
+      "discard": [
+        "Unrelated unfinished surfaces"
+      ],
+      "isolate": [
+        "Compliance gap analysis",
+        "Traceable reporting"
+      ],
+      "missing_interfaces": [
+        "A bounded intake contract",
+        "A customer-facing result delivery path"
+      ],
+      "missing_tests": [
+        "End-to-end test for the proposed wedge",
+        "Adversarial input tests"
+      ],
+      "opportunity_id": "opp_2aeb5a05f707",
+      "relative_effort": "moderate",
+      "reuse": [
+        "dashboard.tsx",
+        "evaluator.py",
+        "report.py",
+        "schema.py",
+        "tests/test_evaluator.py"
+      ],
+      "rewrite": [
+        "Any interface that directly couples the workflow to unrelated product modules"
+      ],
+      "security_work": [
+        "Threat model inputs",
+        "Verify authorization",
+        "Remove embedded secrets",
+        "Validate output redaction"
+      ],
+      "technical_risks": [
+        "Disconnected modules may not integrate",
+        "Repository evidence does not prove production reliability"
+      ],
+      "usable_existing_implementation_percent": 69
+    },
+    {
+      "data_migrations": [
+        "Confirm schema ownership and customer-data boundaries"
+      ],
+      "dependencies_to_remove": [
+        "Dependencies not reached by the proposed workflow"
+      ],
+      "deployment_work": [
+        "Create an isolated deployment or signed local package"
+      ],
+      "discard": [
+        "Unrelated unfinished surfaces"
+      ],
+      "isolate": [
+        "Structured data ingestion",
+        "Scoring and evaluation"
+      ],
+      "missing_interfaces": [
+        "A bounded intake contract",
+        "A customer-facing result delivery path"
+      ],
+      "missing_tests": [
+        "End-to-end test for the proposed wedge",
+        "Adversarial input tests"
+      ],
+      "opportunity_id": "opp_8cc22470a2f6",
+      "relative_effort": "moderate",
+      "reuse": [
+        "app.py",
+        "evaluator.py",
+        "tests/test_evaluator.py"
+      ],
+      "rewrite": [
+        "Any interface that directly couples the workflow to unrelated product modules"
+      ],
+      "security_work": [
+        "Threat model inputs",
+        "Verify authorization",
+        "Remove embedded secrets",
+        "Validate output redaction"
+      ],
+      "technical_risks": [
+        "Disconnected modules may not integrate",
+        "Repository evidence does not prove production reliability"
+      ],
+      "usable_existing_implementation_percent": 53
+    },
+    {
+      "data_migrations": [
+        "Confirm schema ownership and customer-data boundaries"
+      ],
+      "dependencies_to_remove": [
+        "Dependencies not reached by the proposed workflow"
+      ],
+      "deployment_work": [
+        "Create an isolated deployment or signed local package"
+      ],
+      "discard": [
+        "Unrelated unfinished surfaces"
+      ],
+      "isolate": [
+        "Traceable reporting",
+        "Workflow orchestration"
+      ],
+      "missing_interfaces": [
+        "A bounded intake contract",
+        "A customer-facing result delivery path"
+      ],
+      "missing_tests": [
+        "End-to-end test for the proposed wedge",
+        "Adversarial input tests"
+      ],
+      "opportunity_id": "opp_5b2033aa4e1b",
+      "relative_effort": "moderate",
+      "reuse": [
+        "dashboard.tsx",
+        "evaluator.py",
+        "report.py",
+        "schema.py",
+        "service.py"
+      ],
+      "rewrite": [
+        "Any interface that directly couples the workflow to unrelated product modules"
+      ],
+      "security_work": [
+        "Threat model inputs",
+        "Verify authorization",
+        "Remove embedded secrets",
+        "Validate output redaction"
+      ],
+      "technical_risks": [
+        "Disconnected modules may not integrate",
+        "Repository evidence does not prove production reliability"
+      ],
+      "usable_existing_implementation_percent": 62
+    },
+    {
+      "data_migrations": [
+        "Confirm schema ownership and customer-data boundaries"
+      ],
+      "dependencies_to_remove": [
+        "Dependencies not reached by the proposed workflow"
+      ],
+      "deployment_work": [
+        "Create an isolated deployment or signed local package"
+      ],
+      "discard": [
+        "Unrelated unfinished surfaces"
+      ],
+      "isolate": [
+        "User access control",
+        "Commercial billing"
+      ],
+      "missing_interfaces": [
+        "A bounded intake contract",
+        "A customer-facing result delivery path"
+      ],
+      "missing_tests": [
+        "End-to-end test for the proposed wedge",
+        "Adversarial input tests"
+      ],
+      "opportunity_id": "opp_f6d5a15f9267",
+      "relative_effort": "high",
+      "reuse": [
+        "app.py",
+        "billing.py"
+      ],
+      "rewrite": [
+        "Any interface that directly couples the workflow to unrelated product modules"
+      ],
+      "security_work": [
+        "Threat model inputs",
+        "Verify authorization",
+        "Remove embedded secrets",
+        "Validate output redaction"
+      ],
+      "technical_risks": [
+        "Disconnected modules may not integrate",
+        "Repository evidence does not prove production reliability"
+      ],
+      "usable_existing_implementation_percent": 40
+    }
+  ],
+  "schema_version": "1.0"
+}

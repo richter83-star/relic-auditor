@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import PurePosixPath
+from typing import Any
 
 
 IGNORED_DIRECTORIES = frozenset(
@@ -87,10 +88,16 @@ SECRET_TOKEN_PATTERNS = (
     re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{20,}\b"),
     re.compile(r"\bsk-[A-Za-z0-9_-]{16,}\b"),
     re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b"),
+    re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/-]{12,}=*\b"),
+    re.compile(
+        r"(?i)([?&](?:api[_-]?key|token|access[_-]?token|secret)=)"
+        r"[^&#\s]+"
+    ),
 )
 
 SECRET_ASSIGNMENT = re.compile(
-    r"""(?im)^(\s*["']?(?:api[_-]?key|apikey|secret|token|password|passwd|private[_-]?key)"""
+    r"""(?im)^(\s*["']?[A-Za-z0-9_.-]*(?:api[_-]?key|apikey|secret|token|password|"""
+    r"""passwd|private[_-]?key|access[_-]?key|database[_-]?url)[A-Za-z0-9_.-]*"""
     r"""["']?\s*[:=]\s*)(?:"[^"\n]*"|'[^'\n]*'|[^\s,#;]+)"""
 )
 
@@ -105,6 +112,20 @@ def redact_secrets(value: str) -> str:
     for pattern in SECRET_TOKEN_PATTERNS:
         redacted = pattern.sub("[REDACTED]", redacted)
     return redacted
+
+
+def redact_structure(value: Any) -> Any:
+    """Recursively redact strings before they cross a report boundary."""
+
+    if isinstance(value, str):
+        return redact_secrets(value)
+    if isinstance(value, dict):
+        return {str(key): redact_structure(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [redact_structure(item) for item in value]
+    if isinstance(value, tuple):
+        return [redact_structure(item) for item in value]
+    return value
 
 
 def is_binary_name(name: str) -> bool:

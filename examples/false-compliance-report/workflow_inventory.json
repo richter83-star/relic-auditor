@@ -1,0 +1,197 @@
+{
+  "schema_version": "1.0",
+  "workflows": [
+    {
+      "actor": "user or external client",
+      "authentication_state": "observed",
+      "branches": [],
+      "completion_status": "partially_implemented",
+      "confidence": 0.59,
+      "confidence_label": "moderate",
+      "contradictions": [],
+      "data_stores": [],
+      "entry_point": {
+        "reference": "endpoint_4efeb026aff90cc5",
+        "type": "endpoint"
+      },
+      "external_dependencies": [],
+      "failure_handling": "not fully verified",
+      "missing_links": [],
+      "name": "POST /api/login",
+      "outputs": [],
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "schema_version": "1.0",
+      "steps": [
+        {
+          "file": "app.py",
+          "name": "/api/login",
+          "order": 1,
+          "reference": "endpoint_4efeb026aff90cc5",
+          "type": "endpoint"
+        },
+        {
+          "file": "app.py",
+          "name": "login",
+          "order": 2,
+          "reference": "sym_57af45d080150c7d",
+          "type": "function"
+        }
+      ],
+      "structural_evidence": {
+        "implementation_symbols": [
+          "sym_57af45d080150c7d"
+        ],
+        "output_sinks": [],
+        "persistence_sinks": []
+      },
+      "supporting_graph_edges": [
+        {
+          "confidence": 0.94,
+          "edge_id": "edge_2fdbf9d3f521da40",
+          "extraction_method": "framework_pattern",
+          "observation_type": "direct",
+          "source": "endpoint_4efeb026aff90cc5",
+          "target": "sym_57af45d080150c7d",
+          "type": "routes_to"
+        }
+      ],
+      "tests": [],
+      "trigger": "POST /api/login",
+      "user_visible_result": false,
+      "workflow_id": "workflow_af708431e6f92993"
+    },
+    {
+      "actor": "user or external client",
+      "authentication_state": "unknown",
+      "branches": [],
+      "completion_status": "partially_implemented",
+      "confidence": 0.57,
+      "confidence_label": "moderate",
+      "contradictions": [],
+      "data_stores": [],
+      "entry_point": {
+        "reference": "endpoint_fde47a4527b7a71d",
+        "type": "endpoint"
+      },
+      "external_dependencies": [],
+      "failure_handling": "not fully verified",
+      "missing_links": [
+        "Queue producer exists, but no matching production consumer is connected."
+      ],
+      "name": "POST /api/documents",
+      "outputs": [],
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "schema_version": "1.0",
+      "steps": [
+        {
+          "file": "app.py",
+          "name": "/api/documents",
+          "order": 1,
+          "reference": "endpoint_fde47a4527b7a71d",
+          "type": "endpoint"
+        },
+        {
+          "file": "app.py",
+          "name": "FastAPI",
+          "order": 2,
+          "reference": "framework_c43af04033494552",
+          "type": "framework"
+        },
+        {
+          "file": "service.py",
+          "name": "analysis",
+          "order": 3,
+          "reference": "producer_24503e537faf2c97",
+          "type": "queue_producer"
+        },
+        {
+          "file": "app.py",
+          "name": "upload_document",
+          "order": 4,
+          "reference": "sym_486abb8e5ca7fe57",
+          "type": "function"
+        },
+        {
+          "file": "service.py",
+          "name": "create_analysis",
+          "order": 5,
+          "reference": "sym_51aa127483e62c54",
+          "type": "function"
+        }
+      ],
+      "structural_evidence": {
+        "implementation_symbols": [
+          "sym_486abb8e5ca7fe57",
+          "sym_51aa127483e62c54"
+        ],
+        "output_sinks": [],
+        "persistence_sinks": [
+          "sym_51aa127483e62c54"
+        ]
+      },
+      "supporting_graph_edges": [
+        {
+          "confidence": 0.94,
+          "edge_id": "edge_cc2250fd27d85b68",
+          "extraction_method": "framework_pattern",
+          "observation_type": "direct",
+          "source": "endpoint_fde47a4527b7a71d",
+          "target": "sym_486abb8e5ca7fe57",
+          "type": "routes_to"
+        },
+        {
+          "confidence": 0.82,
+          "edge_id": "edge_dd950a86f423db3c",
+          "extraction_method": "same_symbol_body",
+          "observation_type": "direct",
+          "source": "sym_486abb8e5ca7fe57",
+          "target": "framework_c43af04033494552",
+          "type": "uses"
+        },
+        {
+          "arguments": [
+            "document"
+          ],
+          "confidence": 0.58,
+          "edge_id": "edge_85ebba74dab8af5a",
+          "extraction_method": "unique_family_symbol_heuristic",
+          "observation_type": "heuristic",
+          "source": "sym_486abb8e5ca7fe57",
+          "target": "sym_51aa127483e62c54",
+          "target_parameters": [
+            "document"
+          ],
+          "type": "calls"
+        },
+        {
+          "confidence": 0.58,
+          "edge_id": "edge_6e324a7bba7f0cfe",
+          "extraction_method": "unique_family_symbol_heuristic",
+          "mapping": [
+            {
+              "argument": "document",
+              "parameter": "document"
+            }
+          ],
+          "observation_type": "heuristic",
+          "source": "sym_486abb8e5ca7fe57",
+          "target": "sym_51aa127483e62c54",
+          "type": "passes_data"
+        },
+        {
+          "confidence": 0.82,
+          "edge_id": "edge_c8bc3ed9bc89389d",
+          "extraction_method": "same_symbol_body",
+          "observation_type": "direct",
+          "source": "sym_51aa127483e62c54",
+          "target": "producer_24503e537faf2c97",
+          "type": "produces"
+        }
+      ],
+      "tests": [],
+      "trigger": "POST /api/documents",
+      "user_visible_result": false,
+      "workflow_id": "workflow_dc0ab4433f8a94ad"
+    }
+  ]
+}

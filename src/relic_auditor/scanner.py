@@ -38,8 +38,13 @@ class EstateScanner:
     ]:
         if not self.target.exists():
             raise FileNotFoundError(f"Target does not exist: {self.target}")
+        if self.target.is_file():
+            if self.target.is_symlink():
+                raise PermissionError(f"Symbolic-link targets are not followed: {self.target}")
+            self._scan_file(self.target, self.target.name)
+            return self._finalize()
         if not self.target.is_dir():
-            raise NotADirectoryError(f"Target must be a folder: {self.target}")
+            raise NotADirectoryError(f"Target must be a file or folder: {self.target}")
 
         for root, directory_names, file_names in os.walk(self.target, topdown=True, followlinks=False):
             root_path = Path(root)
@@ -68,6 +73,15 @@ class EstateScanner:
                     continue
                 self._scan_file(path, relative)
 
+        return self._finalize()
+
+    def _finalize(self) -> tuple[
+        list[FileRecord],
+        list[dict[str, object]],
+        list[dict[str, str]],
+        list[str],
+        list[dict[str, object]],
+    ]:
         self.files.sort(key=lambda item: item.path)
         self.archives.sort(key=lambda item: str(item["path"]))
         self.ignored.sort(key=lambda item: (item["path"], item["kind"]))
@@ -159,6 +173,12 @@ class EstateScanner:
 
                     archive["safe_members"] = int(archive["safe_members"]) + 1
                     virtual_path = f"{relative}!{info.filename.replace(chr(92), '/')}"
+                    skip_reason = self._zip_member_skip_reason(info.filename)
+                    if skip_reason:
+                        self.ignored.append(
+                            {"path": virtual_path, "reason": skip_reason, "kind": "file"}
+                        )
+                        continue
                     member = FileRecord(
                         path=virtual_path,
                         size=info.file_size,
@@ -197,6 +217,8 @@ class EstateScanner:
             return "symbolic link"
         if name in IGNORED_DIRECTORIES:
             return "generated, dependency, cache, or VCS directory"
+        if name.endswith((".egg-info", ".dist-info")):
+            return "generated package metadata directory"
         if not self.include_hidden and name.startswith("."):
             return "hidden directory"
         return None
@@ -232,3 +254,17 @@ class EstateScanner:
             ".md",
             ".txt",
         }
+
+    def _zip_member_skip_reason(self, name: str) -> str | None:
+        pure = PurePosixPath(name.replace("\\", "/"))
+        if any(part in IGNORED_DIRECTORIES for part in pure.parts):
+            return "generated, dependency, cache, or VCS archive member"
+        if pure.name in JUNK_FILES:
+            return "known junk archive member"
+        if (
+            not self.include_hidden
+            and any(part.startswith(".") for part in pure.parts)
+            and pure.name != ".env.example"
+        ):
+            return "hidden archive member"
+        return None

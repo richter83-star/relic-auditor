@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from .models import AuditResult, Candidate
+from .safety import redact_secrets, redact_structure
 
 
 OUTPUT_FILENAMES = {
@@ -22,7 +23,7 @@ OUTPUT_FILENAMES = {
 def write_reports(result: AuditResult, output: Path) -> list[Path]:
     output.mkdir(parents=True, exist_ok=True)
     paths = {key: output / filename for key, filename in OUTPUT_FILENAMES.items()}
-    paths["estate"].write_text(_estate_markdown(result), encoding="utf-8")
+    paths["estate"].write_text(redact_secrets(_estate_markdown(result)), encoding="utf-8")
     _write_json(paths["architecture"], _architecture_map(result))
     _write_json(paths["extract"], _candidate_document("extract", result.extract_candidates))
     _write_json(paths["archive"], _candidate_document("archive", result.archive_candidates))
@@ -171,7 +172,10 @@ def _candidate_document(kind: str, candidates: list[Candidate]) -> dict[str, Any
 
 
 def _write_json(path: Path, data: dict[str, Any]) -> None:
-    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(redact_structure(data), indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
 
 
 def _md(value: str) -> str:

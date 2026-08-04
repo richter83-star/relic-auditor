@@ -1,0 +1,291 @@
+{
+  "capabilities": [
+    {
+      "capability_id": "capability_0dfe99e2bdbd3dcb",
+      "category": "evaluation",
+      "confidence": 0.57,
+      "confidence_label": "moderate",
+      "contradictory_evidence": [
+        "contradiction_33a493ddc7f1f488"
+      ],
+      "coupling": "moderate",
+      "deployment_evidence": "not dynamically verified",
+      "evidence_strength": "moderate",
+      "explanation": "Rule-based evaluation is classified as implemented but disconnected based on static production-path evidence; scanned code was not executed.",
+      "extraction_readiness": "moderate",
+      "key": "rule-evaluation",
+      "missing_components": [
+        "No verified connected path from product trigger to meaningful output."
+      ],
+      "name": "Rule-based evaluation",
+      "project_family_ids": [
+        "family_cdb4ee2aea69cc6a"
+      ],
+      "reachability": "unverified_or_disconnected",
+      "reusability": "high",
+      "schema_version": "1.0",
+      "score_components": {
+        "contradiction_penalty": 0.15,
+        "direct_relationships": 0.5,
+        "parser_certainty": 0.85,
+        "reachability": 0.45,
+        "test_strength": 0.55
+      },
+      "security_concerns": [
+        "Review authentication, authorization, validation, secret handling, and tenant boundaries."
+      ],
+      "status": "implemented_but_disconnected",
+      "supporting_paths": [
+        "evaluator.py",
+        "schema.py"
+      ],
+      "supporting_symbols": [
+        "sym_2d83f3f9e74efda2",
+        "sym_d3a2512aa9a78711"
+      ],
+      "supporting_workflow_ids": [],
+      "test_evidence": {
+        "notes": "Tests are structural evidence only; they were not executed.",
+        "strength": "moderate"
+      }
+    },
+    {
+      "capability_id": "capability_0f9c78000d9a1e2e",
+      "category": "data",
+      "confidence": 0.62,
+      "confidence_label": "moderate",
+      "contradictory_evidence": [],
+      "coupling": "moderate",
+      "deployment_evidence": "not dynamically verified",
+      "evidence_strength": "moderate",
+      "explanation": "Persistent data storage is classified as partially implemented based on static production-path evidence; scanned code was not executed.",
+      "extraction_readiness": "moderate",
+      "key": "data-persistence",
+      "missing_components": [
+        "No verified connected path from product trigger to meaningful output."
+      ],
+      "name": "Persistent data storage",
+      "project_family_ids": [
+        "family_cdb4ee2aea69cc6a"
+      ],
+      "reachability": "unverified_or_disconnected",
+      "reusability": "high",
+      "schema_version": "1.0",
+      "score_components": {
+        "contradiction_penalty": 0,
+        "direct_relationships": 0.5,
+        "parser_certainty": 0.85,
+        "reachability": 0.45,
+        "test_strength": 0.2
+      },
+      "security_concerns": [
+        "Review authentication, authorization, validation, secret handling, and tenant boundaries."
+      ],
+      "status": "partially_implemented",
+      "supporting_paths": [
+        "app.py",
+        "service.py"
+      ],
+      "supporting_symbols": [
+        "sym_51aa127483e62c54"
+      ],
+      "supporting_workflow_ids": [
+        "workflow_dc0ab4433f8a94ad"
+      ],
+      "test_evidence": {
+        "notes": "Tests are structural evidence only; they were not executed.",
+        "strength": "none"
+      }
+    },
+    {
+      "capability_id": "capability_ba0c5e9988b1c3e4",
+      "category": "ingestion",
+      "confidence": 0.62,
+      "confidence_label": "moderate",
+      "contradictory_evidence": [],
+      "coupling": "moderate",
+      "deployment_evidence": "not dynamically verified",
+      "evidence_strength": "moderate",
+      "explanation": "Document or file ingestion is classified as partially implemented based on static production-path evidence; scanned code was not executed.",
+      "extraction_readiness": "moderate",
+      "key": "document-ingestion",
+      "missing_components": [
+        "No verified connected path from product trigger to meaningful output."
+      ],
+      "name": "Document or file ingestion",
+      "project_family_ids": [
+        "family_cdb4ee2aea69cc6a"
+      ],
+      "reachability": "unverified_or_disconnected",
+      "reusability": "high",
+      "schema_version": "1.0",
+      "score_components": {
+        "contradiction_penalty": 0,
+        "direct_relationships": 0.5,
+        "parser_certainty": 0.85,
+        "reachability": 0.45,
+        "test_strength": 0.2
+      },
+      "security_concerns": [
+        "Review authentication, authorization, validation, secret handling, and tenant boundaries."
+      ],
+      "status": "partially_implemented",
+      "supporting_paths": [
+        "app.py",
+        "service.py"
+      ],
+      "supporting_symbols": [
+        "sym_486abb8e5ca7fe57"
+      ],
+      "supporting_workflow_ids": [
+        "workflow_dc0ab4433f8a94ad"
+      ],
+      "test_evidence": {
+        "notes": "Tests are structural evidence only; they were not executed.",
+        "strength": "none"
+      }
+    },
+    {
+      "capability_id": "capability_c2750447ccba4184",
+      "category": "billing",
+      "confidence": 0.15,
+      "confidence_label": "very low",
+      "contradictory_evidence": [
+        "contradiction_52216e3a9a7c6eee"
+      ],
+      "coupling": "moderate",
+      "deployment_evidence": "not dynamically verified",
+      "evidence_strength": "weak",
+      "explanation": "Subscription billing is classified as configuration only based on static production-path evidence; scanned code was not executed.",
+      "extraction_readiness": "low",
+      "key": "subscription-billing",
+      "missing_components": [
+        "No verified connected path from product trigger to meaningful output."
+      ],
+      "name": "Subscription billing",
+      "project_family_ids": [
+        "family_cdb4ee2aea69cc6a"
+      ],
+      "reachability": "unverified_or_disconnected",
+      "reusability": "unknown",
+      "schema_version": "1.0",
+      "score_components": {
+        "contradiction_penalty": 0.15,
+        "direct_relationships": 0.5,
+        "parser_certainty": 0.85,
+        "reachability": 0.45,
+        "test_strength": 0.2
+      },
+      "security_concerns": [
+        "Review authentication, authorization, validation, secret handling, and tenant boundaries."
+      ],
+      "status": "contradicted",
+      "supporting_paths": [],
+      "supporting_symbols": [],
+      "supporting_workflow_ids": [],
+      "test_evidence": {
+        "notes": "Tests are structural evidence only; they were not executed.",
+        "strength": "none"
+      }
+    },
+    {
+      "capability_id": "capability_c488d8fa0483cbc3",
+      "category": "authentication",
+      "confidence": 0.62,
+      "confidence_label": "moderate",
+      "contradictory_evidence": [],
+      "coupling": "moderate",
+      "deployment_evidence": "not dynamically verified",
+      "evidence_strength": "moderate",
+      "explanation": "Authenticated user access is classified as partially implemented based on static production-path evidence; scanned code was not executed.",
+      "extraction_readiness": "moderate",
+      "key": "authenticated-access",
+      "missing_components": [
+        "No verified connected path from product trigger to meaningful output."
+      ],
+      "name": "Authenticated user access",
+      "project_family_ids": [
+        "family_cdb4ee2aea69cc6a"
+      ],
+      "reachability": "unverified_or_disconnected",
+      "reusability": "high",
+      "schema_version": "1.0",
+      "score_components": {
+        "contradiction_penalty": 0,
+        "direct_relationships": 0.5,
+        "parser_certainty": 0.85,
+        "reachability": 0.45,
+        "test_strength": 0.2
+      },
+      "security_concerns": [
+        "Review authentication, authorization, validation, secret handling, and tenant boundaries."
+      ],
+      "status": "partially_implemented",
+      "supporting_paths": [
+        "app.py"
+      ],
+      "supporting_symbols": [
+        "sym_57af45d080150c7d"
+      ],
+      "supporting_workflow_ids": [
+        "workflow_af708431e6f92993"
+      ],
+      "test_evidence": {
+        "notes": "Tests are structural evidence only; they were not executed.",
+        "strength": "none"
+      }
+    },
+    {
+      "capability_id": "capability_e22d80d977de6ff4",
+      "category": "reporting",
+      "confidence": 0.57,
+      "confidence_label": "moderate",
+      "contradictory_evidence": [
+        "contradiction_116793bb7a4cccca"
+      ],
+      "coupling": "moderate",
+      "deployment_evidence": "not dynamically verified",
+      "evidence_strength": "moderate",
+      "explanation": "Report generation and delivery is classified as implemented but disconnected based on static production-path evidence; scanned code was not executed.",
+      "extraction_readiness": "moderate",
+      "key": "report-generation",
+      "missing_components": [
+        "No verified connected path from product trigger to meaningful output."
+      ],
+      "name": "Report generation and delivery",
+      "project_family_ids": [
+        "family_cdb4ee2aea69cc6a"
+      ],
+      "reachability": "unverified_or_disconnected",
+      "reusability": "high",
+      "schema_version": "1.0",
+      "score_components": {
+        "contradiction_penalty": 0.15,
+        "direct_relationships": 0.5,
+        "parser_certainty": 0.85,
+        "reachability": 0.45,
+        "test_strength": 0.2
+      },
+      "security_concerns": [
+        "Review authentication, authorization, validation, secret handling, and tenant boundaries."
+      ],
+      "status": "implemented_but_disconnected",
+      "supporting_paths": [
+        "dashboard.tsx",
+        "report.py",
+        "schema.py"
+      ],
+      "supporting_symbols": [
+        "sym_33d7833ce2033bcf",
+        "sym_af5214c7eeec1604",
+        "sym_fbc1662ea0e90335"
+      ],
+      "supporting_workflow_ids": [],
+      "test_evidence": {
+        "notes": "Tests are structural evidence only; they were not executed.",
+        "strength": "none"
+      }
+    }
+  ],
+  "schema_version": "1.0"
+}

@@ -1,0 +1,132 @@
+{
+  "async": [
+    {
+      "confidence": 0.82,
+      "file": "service.py",
+      "line": 3,
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "queue": "analysis",
+      "surface_id": "producer_24503e537faf2c97",
+      "type": "queue_producer"
+    }
+  ],
+  "endpoints": [
+    {
+      "authentication": false,
+      "authorization": false,
+      "confidence": 0.94,
+      "error_handling": false,
+      "file": "app.py",
+      "framework": "express",
+      "handler": "login",
+      "method": "POST",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "registered": true,
+      "route": "/api/login",
+      "surface_id": "endpoint_4efeb026aff90cc5",
+      "type": "endpoint",
+      "validation": false
+    },
+    {
+      "authentication": false,
+      "authorization": false,
+      "confidence": 0.94,
+      "error_handling": false,
+      "file": "app.py",
+      "framework": "express",
+      "handler": "upload_document",
+      "method": "POST",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "registered": true,
+      "route": "/api/documents",
+      "surface_id": "endpoint_fde47a4527b7a71d",
+      "type": "endpoint",
+      "validation": false
+    }
+  ],
+  "frameworks": [
+    {
+      "confidence": 0.9,
+      "evidence_method": "import_or_runtime_convention",
+      "file": "app.py",
+      "name": "FastAPI",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "surface_id": "framework_c43af04033494552",
+      "type": "framework"
+    }
+  ],
+  "integrations": [
+    {
+      "confidence": 0.6,
+      "file": "requirements.txt",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "provider": "stripe",
+      "surface_id": "integration_b1d36c5304169cd8",
+      "type": "integration",
+      "usage": "configuration_only"
+    },
+    {
+      "confidence": 0.6,
+      "file": "billing.py",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "provider": "stripe",
+      "surface_id": "integration_efb625fc47b2b3a6",
+      "type": "integration",
+      "usage": "configuration_only"
+    }
+  ],
+  "risk_indicators": [],
+  "schema_version": "1.0",
+  "schemas": [
+    {
+      "confidence": 0.88,
+      "file": "schema.py",
+      "line": 1,
+      "name": "Document",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "surface_id": "schema_9086c623325ced63",
+      "type": "schema"
+    },
+    {
+      "confidence": 0.88,
+      "file": "schema.py",
+      "line": 6,
+      "name": "Report",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "surface_id": "schema_a803e3fefc36262a",
+      "type": "schema"
+    },
+    {
+      "confidence": 0.88,
+      "file": "schema.py",
+      "line": 3,
+      "name": "Finding",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "surface_id": "schema_d5a76eec4331f6d9",
+      "type": "schema"
+    }
+  ],
+  "tests": [
+    {
+      "disabled": false,
+      "file": "tests/test_evaluator.py",
+      "kind": "mock",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "strength": "low",
+      "surface_id": "test_0739ad88c5b27aea"
+    }
+  ],
+  "ui": [],
+  "ui_screens": [
+    {
+      "confidence": 0.88,
+      "file": "dashboard.tsx",
+      "line": 2,
+      "mock_only": true,
+      "name": "ReportDashboard",
+      "project_family_id": "family_cdb4ee2aea69cc6a",
+      "surface_id": "ui-screen_8975d4b312fc2e33",
+      "type": "ui_screen"
+    }
+  ]
+}
