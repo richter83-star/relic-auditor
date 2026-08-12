@@ -21,7 +21,7 @@ PRODUCT_OUTPUTS = {
 def write_product_reports(result: DiscoveryResult, output: Path) -> list[Path]:
     output.mkdir(parents=True, exist_ok=True)
     paths = {key: output / name for key, name in PRODUCT_OUTPUTS.items()}
-    _json(paths["opportunities"], {"schema_version": "1.0", "opportunities": result.opportunities, "rejected_candidates": result.rejected_candidates})
+    _json(paths["opportunities"], {"schema_version": "0.9", "opportunities": result.opportunities, "rejected_candidates": result.rejected_candidates})
     _json(paths["capabilities"], {"schema_version": "1.0", "intent_reconstruction": result.intent, "project_families": result.project_families, "capabilities": result.capabilities})
     _json(paths["evidence"], {"schema_version": "1.0", "evidence": result.evidence_index})
     _json(paths["extraction"], {"schema_version": "1.0", "plans": result.extraction_plans})

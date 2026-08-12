@@ -11,6 +11,7 @@ from ..models import AuditResult, FileRecord
 from ..safety import redact_secrets
 from .providers import provider_for
 from .schemas import DiscoveryConfig, DiscoveryResult
+from .compatibility import normalize_opportunity
 
 
 GENERIC_PHRASES = (
@@ -47,6 +48,34 @@ def discover_products(audit: AuditResult, config: DiscoveryConfig | None = None,
     accepted, rejected = _quality_gate(candidates, cfg.minimum_evidence_score)
     accepted.sort(key=lambda item: (-item["overall_score"], item["opportunity_id"]))
     accepted = accepted[: cfg.max_opportunities]
+    evidence_by_id = {item["evidence_id"]: item for item in evidence}
+    records_by_path = {record.path: record for record in audit.files}
+    for index, opportunity in enumerate(accepted):
+        reusable_assets = []
+        for path in opportunity["extraction_plan"]["reuse"]:
+            record = records_by_path.get(path)
+            refs = sorted(
+                evidence_id
+                for evidence_id in opportunity["evidence"]
+                if evidence_by_id.get(evidence_id, {}).get("path") == path
+            )
+            reusable_assets.append(
+                {
+                    "path": path,
+                    "sha256": record.sha256 if record else None,
+                    "evidence": refs,
+                    "claim": "Observed implementation candidate; ownership and product fitness require review.",
+                }
+            )
+        opportunity["reusable_assets"] = reusable_assets
+        opportunity["missing_components"] = sorted(
+            {
+                *opportunity["extraction_plan"]["missing_interfaces"],
+                *opportunity["extraction_plan"]["missing_tests"],
+                *opportunity["extraction_plan"]["deployment_work"],
+            }
+        )
+        accepted[index] = normalize_opportunity(opportunity, evidence_by_id)
     _assign_rank_labels(accepted)
     extraction = [item["extraction_plan"] for item in accepted]
     market = _market_status(cfg)

@@ -24,6 +24,7 @@ from ..llm import claude_code
 from ..llm.config import ProfileStore
 from ..llm.schemas import LLMProfile
 from ..product_discovery import DiscoveryConfig, DiscoveryResult, discover_products
+from ..product_discovery.entitlements import Entitlement, FREE_ENTITLEMENT
 from ..product_discovery.reports import write_product_reports
 from ..reports import write_reports
 from ..safety import redact_structure
@@ -152,6 +153,7 @@ class DashboardBundle:
     discovery: DiscoveryResult | None = None
     acquisition: AcquisitionResult | None = None
     llm_reasoning: LLMReasoningResult | None = None
+    entitlement: Entitlement = FREE_ENTITLEMENT
 
 
 @dataclass(frozen=True)
