@@ -1,0 +1,108 @@
+name: Build Relic Auditor Windows Installer
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - installer/v0.8.3
+    paths:
+      - ".github/workflows/windows-installer.yml"
+      - "installer/windows/**"
+      - "releases/relic-auditor-0.8.3.zip"
+      - "tests/**"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-installer:
+    runs-on: windows-latest
+    timeout-minutes: 50
+    env:
+      RELIC_SOURCE_SHA256: 1f3a20833ff454c08a681a1fb6dc6dfd8888992f7383045544dc98d0b5ba794f
+      WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
+      WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
+
+    steps:
+      - name: Check out installer branch
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          architecture: "x64"
+          cache: "pip"
+          cache-dependency-path: installer/windows/requirements-build.txt
+
+      - name: Verify frozen v0.8.3 source
+        shell: pwsh
+        run: |
+          $archive = "releases/relic-auditor-0.8.3.zip"
+          if (-not (Test-Path -LiteralPath $archive)) {
+            $parts = Get-ChildItem -LiteralPath "releases/relic-auditor-0.8.3.zip.parts" -Filter "part-*" -File | Sort-Object Name
+            if (-not $parts) { throw "Frozen source archive and transport parts are both missing." }
+            $destination = [IO.File]::Open($archive, [IO.FileMode]::Create, [IO.FileAccess]::Write)
+            try {
+              foreach ($part in $parts) {
+                $input = [IO.File]::OpenRead($part.FullName)
+                try { $input.CopyTo($destination) } finally { $input.Dispose() }
+              }
+            } finally {
+              $destination.Dispose()
+            }
+          }
+          $actual = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($actual -ne $env:RELIC_SOURCE_SHA256) {
+            throw "Frozen source hash mismatch: $actual"
+          }
+
+      - name: Install Inno Setup 6
+        shell: pwsh
+        run: choco install innosetup --no-progress -y
+
+      - name: Prepare optional code-signing certificate
+        id: signing
+        shell: pwsh
+        run: |
+          if ($env:WINDOWS_SIGNING_PFX_BASE64) {
+            $path = Join-Path $env:RUNNER_TEMP "relic-signing.pfx"
+            [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:WINDOWS_SIGNING_PFX_BASE64))
+            "certificate=$path" >> $env:GITHUB_OUTPUT
+            "enabled=true" >> $env:GITHUB_OUTPUT
+          } else {
+            "certificate=" >> $env:GITHUB_OUTPUT
+            "enabled=false" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Build and clean-test installer
+        shell: pwsh
+        run: |
+          if ("${{ steps.signing.outputs.enabled }}" -eq "true") {
+            & "installer/windows/build-installer.ps1" `
+              -SourceArchive "releases/relic-auditor-0.8.3.zip" `
+              -ExpectedSourceSha256 $env:RELIC_SOURCE_SHA256 `
+              -OutputDirectory "release-output" `
+              -SigningCertificate "${{ steps.signing.outputs.certificate }}" `
+              -SigningPassword $env:WINDOWS_SIGNING_PFX_PASSWORD
+          } else {
+            & "installer/windows/build-installer.ps1" `
+              -SourceArchive "releases/relic-auditor-0.8.3.zip" `
+              -ExpectedSourceSha256 $env:RELIC_SOURCE_SHA256 `
+              -OutputDirectory "release-output"
+          }
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Remove signing certificate
+        if: always() && steps.signing.outputs.enabled == 'true'
+        shell: pwsh
+        run: Remove-Item -LiteralPath "${{ steps.signing.outputs.certificate }}" -Force -ErrorAction SilentlyContinue
+
+      - name: Upload verified installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Relic-Auditor-0.8.3-Windows-x64
+          path: release-output/*
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
