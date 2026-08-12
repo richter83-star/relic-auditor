@@ -24,12 +24,14 @@ def _stable_id(title: str, evidence: list[str]) -> str:
 
 
 def normalize_opportunity(
-    raw: Mapping[str, Any], evidence_index: Mapping[str, Mapping[str, Any]] | None = None
+    raw: Mapping[str, Any],
+    evidence_index: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> dict[str, Any]:
     item = copy.deepcopy(dict(raw))
     evidence = sorted({str(value) for value in item.get("evidence", []) if value})
     item["opportunity_id"] = str(
-        item.get("opportunity_id") or _stable_id(str(item.get("title", "Untitled")), evidence)
+        item.get("opportunity_id")
+        or _stable_id(str(item.get("title", "Untitled")), evidence)
     )
     item["title"] = str(item.get("title") or "Untitled opportunity")
     # Preserve the established opportunity-object schema while the report
@@ -87,9 +89,20 @@ def normalize_opportunity(
         ]
     item["missing_components"] = sorted({str(value) for value in missing if value})
 
+    evidence_types = {
+        str(indexed.get(reference, {}).get("evidence_type", ""))
+        for reference in evidence
+        if reference in indexed
+    }
+    documentation_only = bool(item.get("documentation_only")) or bool(
+        evidence_types and evidence_types <= {"stated_intent", "documentation"}
+    )
+    item["documentation_only"] = documentation_only
     status = str(item.get("technical_verification_status", "not_performed"))
     score = int(item.get("evidence_score") or 0)
-    if status == "high" and len(evidence) >= 2:
+    if documentation_only:
+        strength = "exploratory"
+    elif status == "high" and len(evidence) >= 2:
         strength = "verified"
     elif score >= 50 and len(evidence) >= 2:
         strength = "supported"
@@ -97,13 +110,17 @@ def normalize_opportunity(
         strength = "exploratory"
     item["evidence_strength"] = strength
     item["build_pack_readiness"] = (
-        "eligible" if strength in {"verified", "supported"} and item["reusable_assets"] else "review_required"
+        "eligible"
+        if strength in {"verified", "supported"} and item["reusable_assets"]
+        else "review_required"
     )
     item["evidence"] = evidence
     return item
 
 
-def load_opportunities(source: Path | Mapping[str, Any] | DiscoveryResult) -> CompatibleOpportunities:
+def load_opportunities(
+    source: Path | Mapping[str, Any] | DiscoveryResult,
+) -> CompatibleOpportunities:
     if isinstance(source, DiscoveryResult):
         raw = {
             "schema_version": "0.9",

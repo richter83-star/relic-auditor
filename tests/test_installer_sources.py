@@ -7,8 +7,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WINDOWS = ROOT / "installer" / "windows"
-SOURCE = ROOT / "releases" / "relic-auditor-0.8.3.zip"
-EXPECTED_SOURCE_SHA256 = "1f3a20833ff454c08a681a1fb6dc6dfd8888992f7383045544dc98d0b5ba794f"
+SOURCE = ROOT / "releases" / "relic-auditor-0.10.0.zip"
+EXPECTED_SOURCE_SHA256 = "45d06bd992c4acb8b7de4414443c354f1094cf77ec0d9ca80c7082789619c5a4"
 
 
 def test_frozen_source_is_exact_release() -> None:
@@ -38,7 +38,7 @@ def test_build_is_pinned_and_outputs_both_frontends() -> None:
     assert "PyInstaller==6.21.0" in requirements
     assert 'name="Relic Auditor"' in spec
     assert 'name="relic"' in spec
-    assert "collect_submodules(\"keyring.backends\")" in spec
+    assert 'collect_submodules("keyring.backends")' in spec
     assert "console=False" in spec
     assert "console=True" in spec
 
@@ -47,8 +47,8 @@ def test_clean_install_and_uninstall_are_release_gates() -> None:
     build = (WINDOWS / "build-installer.ps1").read_text(encoding="utf-8")
     for required in (
         "Frozen source hash mismatch",
-        '$env:TEMP = $TestTempRoot',
-        '$env:TMP = $TestTempRoot',
+        "$env:TEMP = $TestTempRoot",
+        "$env:TMP = $TestTempRoot",
         "bundle-smoke",
         "clean-install",
         "installer-preservation-",
@@ -59,9 +59,12 @@ def test_clean_install_and_uninstall_are_release_gates() -> None:
 
 
 def test_workflow_uses_windows_and_only_frozen_source() -> None:
-    workflow = (ROOT / ".github" / "workflows" / "windows-installer.yml").read_text(encoding="utf-8")
+    workflow = (ROOT / ".github" / "workflows" / "windows-installer.yml").read_text(
+        encoding="utf-8"
+    )
     assert "runs-on: windows-latest" in workflow
-    assert "releases/relic-auditor-0.8.3.zip" in workflow
+    assert "releases/relic-auditor-0.10.0.zip" in workflow
+    assert "SkipSourceTests" not in workflow
     assert EXPECTED_SOURCE_SHA256 in workflow
     assert "actions/upload-artifact@v4" in workflow
     assert re.search(r"WINDOWS_SIGNING_PFX_BASE64.*secrets", workflow)

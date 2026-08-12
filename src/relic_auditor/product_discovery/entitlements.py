@@ -63,4 +63,3 @@ def entitlement_for_testing(tier: ProductTier | str) -> Entitlement:
     """Explicit injection point used by verified hosts and tests only."""
 
     return Entitlement(ProductTier(tier), "test-host", "injected-test-boundary")
-

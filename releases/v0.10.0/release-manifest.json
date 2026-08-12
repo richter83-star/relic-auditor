@@ -1,0 +1,43 @@
+{
+  "artifacts": [
+    {
+      "file": "relic-auditor-0.10.0.zip",
+      "sha256": "45d06bd992c4acb8b7de4414443c354f1094cf77ec0d9ca80c7082789619c5a4",
+      "size_bytes": 246742,
+      "type": "frozen-source"
+    },
+    {
+      "file": "relic_auditor-0.10.0-py3-none-any.whl",
+      "sha256": "1f46d9850cbfd9c955332c16c5f12d8a0e79040713d931d44fa83bcf208e6d1d",
+      "size_bytes": 169586,
+      "type": "wheel"
+    },
+    {
+      "file": "relic_auditor-0.10.0.tar.gz",
+      "sha256": "955852c5dd97cf7f5bbe657faaa5d140d3fbd77a9edbf5d5fbca2ac36d456317",
+      "size_bytes": 196764,
+      "type": "sdist"
+    },
+    {
+      "content_sha256": "73996f91f056c8cd8565778371d7756df2ad9d41a5dd7b595feb25d50dba54c6",
+      "file": "relic-auditor-0.10.0-representative-build-pack.zip",
+      "pack_id": "bp_73996f91f056c8cd85657783",
+      "sha256": "d566f6cb9c1d13815952eb650406b3b5072b6f3403aa0583305d83711acf115d",
+      "size_bytes": 10735,
+      "type": "representative-build-pack"
+    }
+  ],
+  "installer": {
+    "native_validation": "pending-separate-approval",
+    "source_sha256_pinned": true,
+    "status": "prepared-not-built"
+  },
+  "product": "Relic Auditor",
+  "release_status": "local-rc",
+  "tests": {
+    "frozen_source": {"passed": 332, "skipped": 1},
+    "repository": {"deselected": 0, "passed": 338, "skipped": 1},
+    "v0.10_focused": {"passed": 47}
+  },
+  "version": "0.10.0"
+}

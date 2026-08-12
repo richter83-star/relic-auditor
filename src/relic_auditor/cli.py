@@ -30,6 +30,15 @@ from .product_discovery import DiscoveryConfig, discover_products
 from .product_discovery.reports import write_product_reports
 from .technical_truth import TechnicalTruthConfig, analyze_technical_truth
 from .technical_truth.reports import write_technical_truth_reports
+from .build_packs.compatibility import load_prepared_pack
+from .build_packs.schemas import PreparedBuildPack
+from .build_packs.service import (
+    BuildPackService,
+    load_approval,
+    write_approval,
+    write_prepared_pack,
+)
+from .product_discovery.entitlements import Entitlement, FREE_ENTITLEMENT
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -37,34 +46,72 @@ def build_parser() -> argparse.ArgumentParser:
         prog="relic",
         description="Deterministically appraise a messy software estate without executing or modifying it.",
     )
-    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
+    )
     commands = parser.add_subparsers(dest="command", required=True)
-    audit = commands.add_parser("audit", help="scan a file or folder and write appraisal reports")
-    audit.add_argument("target", type=Path, help="file, folder, or ZIP archive to inspect")
+    audit = commands.add_parser(
+        "audit", help="scan a file or folder and write appraisal reports"
+    )
+    audit.add_argument(
+        "target", type=Path, help="file, folder, or ZIP archive to inspect"
+    )
     audit.add_argument(
         "-o",
         "--output",
         type=Path,
         help="report directory (default: ./relic-report)",
     )
-    audit.add_argument("--product-discovery", action="store_true", help="generate offline evidence-backed product and GTM proposals")
+    audit.add_argument(
+        "--product-discovery",
+        action="store_true",
+        help="generate offline evidence-backed product and GTM proposals",
+    )
     audit.add_argument(
         "--capability-acquisition",
         action="store_true",
         help="detect reusable bounded-autonomy building blocks and write acquisition inventories",
     )
-    audit.add_argument("--offline", action="store_true", help="explicitly require no external calls (already the default)")
-    audit.add_argument("--market-validation", action="store_true", help="request configured external validation; never sends source by default")
-    audit.add_argument("--reasoning-provider", choices=["none", "local", "configured_external"], default="none")
+    audit.add_argument(
+        "--offline",
+        action="store_true",
+        help="explicitly require no external calls (already the default)",
+    )
+    audit.add_argument(
+        "--market-validation",
+        action="store_true",
+        help="request configured external validation; never sends source by default",
+    )
+    audit.add_argument(
+        "--reasoning-provider",
+        choices=["none", "local", "configured_external"],
+        default="none",
+    )
     _add_llm_reasoning_args(audit)
     audit.add_argument("--max-opportunities", type=int, default=6)
-    audit.add_argument("--technical-truth", action="store_true", help="run deterministic static technical verification")
-    audit.add_argument("--no-technical-truth", action="store_true", help="disable automatic technical verification for product discovery")
+    audit.add_argument(
+        "--technical-truth",
+        action="store_true",
+        help="run deterministic static technical verification",
+    )
+    audit.add_argument(
+        "--no-technical-truth",
+        action="store_true",
+        help="disable automatic technical verification for product discovery",
+    )
     audit.add_argument("--technical-max-file-mb", type=int, default=2)
     audit.add_argument("--max-graph-nodes", type=int, default=100_000)
     audit.add_argument("--workflow-depth", type=int, default=12)
-    audit.add_argument("--no-technical-cache", action="store_true", help="disable persistent parse-result caching")
-    audit.add_argument("--technical-cache", type=Path, help="cache file path (default: report directory/.relic-cache/technical-truth.json)")
+    audit.add_argument(
+        "--no-technical-cache",
+        action="store_true",
+        help="disable persistent parse-result caching",
+    )
+    audit.add_argument(
+        "--technical-cache",
+        type=Path,
+        help="cache file path (default: report directory/.relic-cache/technical-truth.json)",
+    )
     audit.add_argument("--max-data-flow-edges", type=int, default=50_000)
     audit.add_argument(
         "--include-hidden",
@@ -89,7 +136,9 @@ def build_parser() -> argparse.ArgumentParser:
         "acquire",
         help="run deterministic Capability Acquisition Mode on a file, folder, or ZIP",
     )
-    acquire.add_argument("target", type=Path, help="file, folder, or ZIP archive to inspect")
+    acquire.add_argument(
+        "target", type=Path, help="file, folder, or ZIP archive to inspect"
+    )
     acquire.add_argument("-o", "--output", type=Path, help="report directory")
     acquire.add_argument("--include-hidden", action="store_true")
     acquire.add_argument("--max-file-mb", type=int, default=10, metavar="MB")
@@ -168,14 +217,57 @@ def build_parser() -> argparse.ArgumentParser:
     logout.add_argument("name")
     status = llm_actions.add_parser("status", help="show credential readiness")
     status.add_argument("name")
+    build_pack = commands.add_parser(
+        "build-pack", help="preview, approve, export, or validate a Premium Build Pack"
+    )
+    build_actions = build_pack.add_subparsers(dest="build_action", required=True)
+    listing = build_actions.add_parser("list", help="list eligible Opportunities")
+    listing.add_argument("report", type=Path)
+    listing.add_argument("--json", action="store_true")
+    pack_status = build_actions.add_parser(
+        "status", help="print machine-readable Build Pack readiness"
+    )
+    pack_status.add_argument("report", type=Path)
+    pack_status.add_argument("--opportunity", required=True)
+    pack_status.add_argument("--json", action="store_true")
+    prepare = build_actions.add_parser(
+        "prepare", help="prepare a Build Pack preview without copying assets"
+    )
+    prepare.add_argument("report", type=Path)
+    prepare.add_argument("--opportunity", required=True)
+    prepare.add_argument("--target", type=Path)
+    prepare.add_argument("--output", type=Path, required=True)
+    prepare.add_argument("--approval-output", type=Path)
+    prepare.add_argument("--approve", action="append", default=[])
+    prepare.add_argument("--reviewed", action="append", default=[])
+    prepare.add_argument("--json", action="store_true")
+    export = build_actions.add_parser(
+        "export", help="atomically export an approved Build Pack"
+    )
+    export.add_argument("pack", type=Path)
+    export.add_argument("--approval", type=Path, required=True)
+    export.add_argument("--target", type=Path, required=True)
+    export.add_argument("--output", type=Path, required=True)
+    export.add_argument("--json", action="store_true")
+    validate = build_actions.add_parser(
+        "validate", help="verify a Build Pack manifest and checksums"
+    )
+    validate.add_argument("directory", type=Path)
+    validate.add_argument("--json", action="store_true")
     return parser
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(
+    argv: list[str] | None = None,
+    *,
+    entitlement: Entitlement = FREE_ENTITLEMENT,
+) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if args.command == "llm":
         return _handle_llm_command(args)
+    if args.command == "build-pack":
+        return _handle_build_pack_command(args, entitlement)
     if getattr(args, "llm_required", False) and not getattr(args, "llm_profile", None):
         parser.error("--llm-required requires --llm-profile")
     if args.command == "dashboard":
@@ -184,7 +276,7 @@ def main(argv: list[str] | None = None) -> int:
         except ModuleNotFoundError as exc:
             if exc.name and exc.name.startswith("PySide6"):
                 print(
-                    'error: the dashboard requires the GUI extra; install it with '
+                    "error: the dashboard requires the GUI extra; install it with "
                     'python -m pip install -e ".[gui]"',
                     file=sys.stderr,
                 )
@@ -203,11 +295,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "monitor":
         if args.debounce_seconds < 0 or args.poll_seconds <= 0:
-            parser.error("monitor timing values must be non-negative and poll time must be positive")
+            parser.error(
+                "monitor timing values must be non-negative and poll time must be positive"
+            )
         inbox = args.inbox.expanduser().resolve()
         output = (
-            args.output or inbox.parent / f"{inbox.name}-relic-monitor"
-        ).expanduser().resolve()
+            (args.output or inbox.parent / f"{inbox.name}-relic-monitor")
+            .expanduser()
+            .resolve()
+        )
         try:
             print(f"Relic Monitor watching: {inbox}")
             print(f"Capability reports: {output}")
@@ -240,12 +336,18 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "acquire":
-        if args.max_file_mb <= 0 or args.max_zip_members <= 0 or args.max_candidates <= 0:
+        if (
+            args.max_file_mb <= 0
+            or args.max_zip_members <= 0
+            or args.max_candidates <= 0
+        ):
             parser.error("scan limits must be positive")
         target = args.target.expanduser().resolve()
         output = (
-            args.output or target.parent / f"{target.name}-relic-acquisition"
-        ).expanduser().resolve()
+            (args.output or target.parent / f"{target.name}-relic-acquisition")
+            .expanduser()
+            .resolve()
+        )
         try:
             if target == output or (target.is_dir() and output.is_relative_to(target)):
                 raise ValueError(
@@ -295,7 +397,15 @@ def main(argv: list[str] | None = None) -> int:
                 return 3
         return 0
 
-    if args.max_file_mb <= 0 or args.max_zip_members <= 0 or args.max_opportunities <= 0 or args.technical_max_file_mb <= 0 or args.max_graph_nodes <= 0 or args.workflow_depth <= 0 or args.max_data_flow_edges <= 0:
+    if (
+        args.max_file_mb <= 0
+        or args.max_zip_members <= 0
+        or args.max_opportunities <= 0
+        or args.technical_max_file_mb <= 0
+        or args.max_graph_nodes <= 0
+        or args.workflow_depth <= 0
+        or args.max_data_flow_edges <= 0
+    ):
         parser.error("scan limits must be positive")
     if args.offline and args.market_validation:
         parser.error("--offline and --market-validation cannot be used together")
@@ -331,7 +441,9 @@ def main(argv: list[str] | None = None) -> int:
             )
             written.extend(write_llm_reports(llm_result, output))
         truth = None
-        run_truth = args.technical_truth or (args.product_discovery and not args.no_technical_truth)
+        run_truth = args.technical_truth or (
+            args.product_discovery and not args.no_technical_truth
+        )
         if run_truth:
             truth = analyze_technical_truth(
                 result,
@@ -339,7 +451,12 @@ def main(argv: list[str] | None = None) -> int:
                     max_file_size=args.technical_max_file_mb * 1024 * 1024,
                     max_graph_nodes=args.max_graph_nodes,
                     workflow_depth=args.workflow_depth,
-                    cache_path=str((args.technical_cache or output / ".relic-cache" / "technical-truth.json").resolve()),
+                    cache_path=str(
+                        (
+                            args.technical_cache
+                            or output / ".relic-cache" / "technical-truth.json"
+                        ).resolve()
+                    ),
                     use_persistent_cache=not args.no_technical_cache,
                     max_data_flow_edges=args.max_data_flow_edges,
                 ),
@@ -534,6 +651,123 @@ def _default_base_url(protocol: str) -> str:
     if protocol == "anthropic-messages":
         return "https://api.anthropic.com/v1"
     return "https://api.openai.com/v1"
+
+
+def _handle_build_pack_command(
+    args: argparse.Namespace, entitlement: Entitlement
+) -> int:
+    service = BuildPackService(entitlement)
+    try:
+        if args.build_action == "list":
+            loaded = service.list_opportunities(args.report)
+            rows = [
+                {
+                    "opportunity_id": item["opportunity_id"],
+                    "title": item["title"],
+                    "readiness": item["build_pack_readiness"],
+                    "evidence_strength": item["evidence_strength"],
+                }
+                for item in loaded.opportunities
+            ]
+            if args.json:
+                print(json.dumps({"opportunities": rows}, sort_keys=True))
+            else:
+                for row in rows:
+                    print(
+                        f"{row['opportunity_id']}\t{row['readiness']}\t{row['title']}"
+                    )
+            return 0
+        if args.build_action == "status":
+            loaded = service.list_opportunities(args.report)
+            matches = [
+                item
+                for item in loaded.opportunities
+                if item["opportunity_id"] == args.opportunity
+            ]
+            if len(matches) != 1:
+                raise ValueError("selected Opportunity was not found")
+            item = matches[0]
+            status = {
+                "opportunity_id": item["opportunity_id"],
+                "readiness": item["build_pack_readiness"],
+                "rescan_required_for_assets": loaded.requires_rescan_for_assets,
+            }
+            print(
+                json.dumps(status, sort_keys=True)
+                if args.json
+                else f"{status['readiness']}\t{status['opportunity_id']}"
+            )
+            return 0
+        if args.build_action == "prepare":
+            audit = None
+            target = None
+            if args.target is not None:
+                target = args.target.expanduser().resolve()
+                audit = audit_estate(target)
+            pack = service.prepare(
+                args.report,
+                args.opportunity,
+                audit=audit,
+                source_root=target,
+            )
+            write_prepared_pack(pack, args.output)
+            approval_path = None
+            if args.approval_output is not None:
+                approval = service.approve(
+                    pack, args.approve, reviewed_paths=args.reviewed
+                )
+                approval_path = write_approval(approval, args.approval_output)
+            result = {
+                "pack_id": pack.pack_id,
+                "content_hash": pack.content_hash,
+                "preview": str(args.output),
+                "approval": str(approval_path) if approval_path else None,
+                "assets_copied": False,
+            }
+            print(
+                json.dumps(result, sort_keys=True)
+                if args.json
+                else f"Prepared {pack.pack_id}: {args.output}"
+            )
+            return 0
+        if args.build_action == "export":
+            loaded = load_prepared_pack(args.pack)
+            pack = PreparedBuildPack(
+                loaded.pack_id,
+                loaded.content_hash,
+                loaded.content,
+                args.target.expanduser().resolve(),
+            )
+            approval = load_approval(args.approval)
+            result = service.export(pack, approval, args.output)
+            status = {
+                "pack_id": result.pack_id,
+                "directory": str(result.directory),
+                "valid": True,
+            }
+            print(
+                json.dumps(status, sort_keys=True)
+                if args.json
+                else f"Exported {result.pack_id}: {result.directory}"
+            )
+            return 0
+        status = service.validate(args.directory)
+        print(
+            json.dumps(status, sort_keys=True)
+            if args.json
+            else f"Valid Build Pack: {status['pack_id']}"
+        )
+        return 0
+    except (
+        FileNotFoundError,
+        NotADirectoryError,
+        PermissionError,
+        RuntimeError,
+        ValueError,
+        OSError,
+    ) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

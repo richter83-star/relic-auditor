@@ -2,7 +2,11 @@
 
 from .pipeline import discover_products
 from .schemas import DiscoveryConfig, DiscoveryResult
-from .compatibility import CompatibleOpportunities, load_opportunities, normalize_opportunity
+from .compatibility import (
+    CompatibleOpportunities,
+    load_opportunities,
+    normalize_opportunity,
+)
 from .entitlements import (
     Entitlement,
     FREE_ENTITLEMENT,

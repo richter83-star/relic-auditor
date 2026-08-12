@@ -1,6 +1,6 @@
-# Relic Auditor 0.8.3 — Windows installer
+# Relic Auditor 0.10.0 — Windows installer
 
-`Relic-Auditor-Setup-0.8.3-x64.exe` installs the frozen Relic Auditor 0.8.3 release for the current Windows user.
+`Relic-Auditor-Setup-0.10.0-x64.exe` installs the frozen Relic Auditor 0.10.0 release for the current Windows user.
 
 ## What it installs
 
@@ -28,7 +28,7 @@ No separate Python installation and no manual PATH setup are required. The insta
 From PowerShell in the download folder:
 
 ```powershell
-Get-FileHash ".\Relic-Auditor-Setup-0.8.3-x64.exe" -Algorithm SHA256
+Get-FileHash ".\Relic-Auditor-Setup-0.10.0-x64.exe" -Algorithm SHA256
 ```
 
 Compare the result with `SHA256SUMS.txt` from the same release.

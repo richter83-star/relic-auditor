@@ -5,6 +5,28 @@ estates. It reads loose files, folders, and ZIP files, detects project types, ma
 finds byte-identical duplicates, and produces review candidates. It never imports,
 executes, installs, changes, or deletes scanned code.
 
+v0.10.0 adds the Product Builder Bridge. A Premium user can choose one
+evidence-supported Opportunity, review a deterministic MVP plan, approve exact
+hash-verified reusable assets, and export a separate Build Pack with Codex,
+Claude Code, and generic render-only handoffs. The bridge never launches a
+coding agent, shell, dependency installer, Git remote, deployment, or external
+action. See [docs/product-builder-bridge.md](docs/product-builder-bridge.md).
+
+Build Pack CLI lifecycle:
+
+```bash
+relic build-pack list product_opportunities.json --json
+relic build-pack prepare product_opportunities.json --opportunity opp_ID \
+  --target /path/to/rescanned-estate --output preview.json
+relic build-pack export preview.json --approval approval.json \
+  --target /path/to/rescanned-estate --output /path/to/Relic-Build-Packs
+relic build-pack validate /path/to/Relic-Build-Packs/bp_ID --json
+```
+
+Production defaults to Free and the CLI has no entitlement-promotion flag.
+The lifecycle commands become available only when a verified host injects the
+appropriate entitlement.
+
 v0.8.3 turns the desktop dashboard into a progressive-disclosure product for
 non-technical users. The default shell has only Scan, Results, and Reports;
 the complete evidence console remains available behind Technical details.

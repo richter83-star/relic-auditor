@@ -1,12 +1,11 @@
 [CmdletBinding()]
 param(
     [string]$SourceArchive = "",
-    [string]$ExpectedSourceSha256 = "1f3a20833ff454c08a681a1fb6dc6dfd8888992f7383045544dc98d0b5ba794f",
+    [string]$ExpectedSourceSha256 = "45d06bd992c4acb8b7de4414443c354f1094cf77ec0d9ca80c7082789619c5a4",
     [string]$OutputDirectory = "",
     [string]$InnoSetupPath = "",
     [string]$SigningCertificate = "",
     [string]$SigningPassword = "",
-    [switch]$SkipSourceTests,
     [switch]$KeepBuildDirectory
 )
 
@@ -17,7 +16,7 @@ $ProgressPreference = "SilentlyContinue"
 $InstallerRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $KitRoot = (Resolve-Path (Join-Path $InstallerRoot "..\..")).Path
 if (-not $SourceArchive) {
-    $SourceArchive = Join-Path $KitRoot "releases\relic-auditor-0.8.3.zip"
+    $SourceArchive = Join-Path $KitRoot "releases\relic-auditor-0.10.0.zip"
 }
 if (-not $OutputDirectory) {
     $OutputDirectory = Join-Path $KitRoot "release-output"
@@ -107,7 +106,7 @@ function Sign-File {
 }
 
 if (-not [Environment]::Is64BitOperatingSystem) {
-    throw "Relic Auditor 0.8.3 supports 64-bit Windows only."
+    throw "Relic Auditor 0.10.0 supports 64-bit Windows only."
 }
 
 $ActualSourceHash = (Get-FileHash -LiteralPath $SourceArchive -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -131,7 +130,7 @@ $env:TEMP = $TestTempRoot
 $env:TMP = $TestTempRoot
 Get-ChildItem -LiteralPath $OutputDirectory -File -ErrorAction SilentlyContinue |
     Where-Object { $_.Name -in @(
-        "Relic-Auditor-Setup-0.8.3-x64.exe",
+        "Relic-Auditor-Setup-0.10.0-x64.exe",
         "SHA256SUMS.txt",
         "release-manifest.json",
         "INSTALLER-README.md"
@@ -140,16 +139,14 @@ Get-ChildItem -LiteralPath $OutputDirectory -File -ErrorAction SilentlyContinue 
 
 $UnpackedRoot = Join-Path $SafeBuildRoot "source-unpacked"
 Expand-Archive -LiteralPath $SourceArchive -DestinationPath $UnpackedRoot -Force
-$SourceRoot = Join-Path $UnpackedRoot "relic-auditor-0.8.3"
+$SourceRoot = Join-Path $UnpackedRoot "relic-auditor-0.10.0"
 if (-not (Test-Path -LiteralPath (Join-Path $SourceRoot "pyproject.toml") -PathType Leaf)) {
     throw "The canonical source root was not found after extraction."
 }
 $ProjectMetadata = Get-Content -LiteralPath (Join-Path $SourceRoot "pyproject.toml") -Raw
-if ($ProjectMetadata -notmatch '(?m)^version = "0\.8\.3"$') {
-    throw "The source archive does not identify itself as Relic Auditor 0.8.3."
+if ($ProjectMetadata -notmatch '(?m)^version = "0\.10\.0"$') {
+    throw "The source archive does not identify itself as Relic Auditor 0.10.0."
 }
-$FrozenSourceTestExclusion = "tests/test_dashboard.py::DashboardCoreTests::test_automatic_report_hierarchy_and_history"
-$FrozenSourceTestExclusionReason = "The immutable v0.8.3 fixture creates a Windows-invalid colon path; the corrected repository test runs before the frozen-source suite."
 
 $Launcher = Get-PythonLauncher
 $VenvRoot = Join-Path $SafeBuildRoot "venv"
@@ -160,14 +157,9 @@ Invoke-Checked -Command $VenvPython -Arguments @("-m", "pip", "install", "--disa
 Invoke-Checked -Command $VenvPython -Arguments @("-m", "pip", "install", "--disable-pip-version-check", "$SourceRoot[all]")
 Invoke-Checked -Command $VenvPython -Arguments @("-m", "pytest", "-q", (Join-Path $KitRoot "tests"))
 
-if (-not $SkipSourceTests) {
-    Invoke-Checked -Command $VenvPython -Arguments @(
-        "-m", "pytest", "-q", (Join-Path $SourceRoot "tests"),
-        "-k", "not test_automatic_report_hierarchy_and_history"
-    )
-}
+Invoke-Checked -Command $VenvPython -Arguments @("-m", "pytest", "-q", (Join-Path $SourceRoot "tests"))
 $VersionOutput = (& $VenvPython "-m" "relic_auditor" "--version" 2>&1 | Out-String).Trim()
-if ($LASTEXITCODE -ne 0 -or $VersionOutput -ne "relic 0.8.3") {
+if ($LASTEXITCODE -ne 0 -or $VersionOutput -ne "relic 0.10.0") {
     throw "Unexpected source version output: $VersionOutput"
 }
 
@@ -195,7 +187,7 @@ foreach ($ExpectedExecutable in @($GuiExe, $CliExe)) {
 }
 
 $BundledVersion = (& $CliExe "--version" 2>&1 | Out-String).Trim()
-if ($LASTEXITCODE -ne 0 -or $BundledVersion -ne "relic 0.8.3") {
+if ($LASTEXITCODE -ne 0 -or $BundledVersion -ne "relic 0.10.0") {
     throw "Bundled CLI version verification failed: $BundledVersion"
 }
 $Fixture = Join-Path $SourceRoot "tests\fixtures\false_compliance"
@@ -210,7 +202,7 @@ if ($GuiSmoke.ExitCode -ne 0) {
 
 $Compiler = Find-InnoSetup $InnoSetupPath
 Invoke-Checked -Command $Compiler -Arguments @("/Qp", (Join-Path $InstallerRoot "relic-auditor.iss"))
-$InstallerExe = Join-Path $OutputDirectory "Relic-Auditor-Setup-0.8.3-x64.exe"
+$InstallerExe = Join-Path $OutputDirectory "Relic-Auditor-Setup-0.10.0-x64.exe"
 if (-not (Test-Path -LiteralPath $InstallerExe -PathType Leaf)) {
     throw "Inno Setup did not produce the expected installer."
 }
@@ -232,7 +224,7 @@ try {
     $InstalledCli = Join-Path $CleanInstall "cli\relic.exe"
     $InstalledGui = Join-Path $CleanInstall "Relic Auditor.exe"
     $InstalledVersion = (& $InstalledCli "--version" 2>&1 | Out-String).Trim()
-    if ($LASTEXITCODE -ne 0 -or $InstalledVersion -ne "relic 0.8.3") {
+    if ($LASTEXITCODE -ne 0 -or $InstalledVersion -ne "relic 0.10.0") {
         throw "Installed CLI version verification failed: $InstalledVersion"
     }
     $InstallSmokeRoot = Join-Path $SafeBuildRoot "installed-smoke"
@@ -280,7 +272,7 @@ $InstallerSize = (Get-Item -LiteralPath $InstallerExe).Length
 $Signature = Get-AuthenticodeSignature -LiteralPath $InstallerExe
 $Manifest = [ordered]@{
     product = "Relic Auditor"
-    version = "0.8.3"
+    version = "0.10.0"
     architecture = "x64"
     minimum_windows_build = "10.0.17763"
     source_archive = (Split-Path -Leaf $SourceArchive)
@@ -291,9 +283,9 @@ $Manifest = [ordered]@{
     authenticode_status = $Signature.Status.ToString()
     python_bundled = $true
     python_required_on_target = $false
-    source_tests_run = (-not $SkipSourceTests.IsPresent)
-    source_test_exclusions = if ($SkipSourceTests.IsPresent) { @() } else { @($FrozenSourceTestExclusion) }
-    source_test_exclusion_reason = if ($SkipSourceTests.IsPresent) { "" } else { $FrozenSourceTestExclusionReason }
+    source_tests_run = $true
+    source_test_exclusions = @()
+    source_test_exclusion_reason = ""
     bundled_cli_smoke = "passed"
     bundled_gui_smoke = "passed"
     clean_install_smoke = "passed"

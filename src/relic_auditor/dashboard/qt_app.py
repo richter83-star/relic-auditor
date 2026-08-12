@@ -55,6 +55,8 @@ from PySide6.QtWidgets import (
 )
 
 from .. import __version__
+from ..build_packs import BuildPackService
+from ..product_discovery.entitlements import ProductCapability
 from ..llm.claude_code import (
     DEFAULT_EFFORT,
     MODEL_ALIASES,
@@ -91,7 +93,7 @@ from .core import (
     run_dashboard_audit,
     summarize_dashboard_bundle,
 )
-from .theme import BREAKPOINTS, PALETTE, SPACING, control_height, stylesheet
+from .theme import BREAKPOINTS, SPACING, control_height, stylesheet
 from .widgets import (
     ArchitectureView,
     CandidateTable,
@@ -99,6 +101,7 @@ from .widgets import (
     TechnicalTruthWidget,
     public_record,
 )
+from .build_pack_dialog import BuildPackDialog
 
 
 class ScanWorker(QObject):
@@ -420,6 +423,15 @@ class RelicWindow(QMainWindow):
         heading.setWordWrap(True)
         results_layout.addWidget(heading)
 
+        self.opportunity_heading = QLabel("Top Opportunities")
+        self.opportunity_heading.setObjectName("panelTitle")
+        self.opportunity_heading.setVisible(False)
+        results_layout.addWidget(self.opportunity_heading)
+        self.opportunity_cards = [EvidenceCard("Opportunity") for _ in range(3)]
+        for card in self.opportunity_cards:
+            card.setVisible(False)
+            results_layout.addWidget(card)
+
         self.found_card = EvidenceCard("What Relic found")
         self.valuable_card = EvidenceCard("What is valuable")
         self.risk_card = EvidenceCard("What is incomplete or risky")
@@ -437,6 +449,13 @@ class RelicWindow(QMainWindow):
         self.view_full_report_button.setEnabled(False)
         self.view_full_report_button.clicked.connect(self.view_full_report)
         actions.addWidget(self.view_full_report_button)
+        self.prepare_product_button = PrimaryButton("Prepare this product")
+        self.prepare_product_button.setAccessibleName(
+            "Prepare the leading product as a Build Pack"
+        )
+        self.prepare_product_button.setVisible(False)
+        self.prepare_product_button.clicked.connect(self.prepare_leading_product)
+        actions.addWidget(self.prepare_product_button)
         actions.addStretch(1)
         self.results_technical_button = SecondaryButton("Technical details")
         self.results_technical_button.clicked.connect(self.open_technical_details)
@@ -448,7 +467,9 @@ class RelicWindow(QMainWindow):
         results_scroll.setWidget(self.results_content)
         results_scroll.setWidgetResizable(True)
         results_scroll.setFrameShape(QFrame.Shape.NoFrame)
-        results_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        results_scroll.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
         layout.addWidget(results_scroll, 1)
         self.results_content.setVisible(False)
         return page
@@ -496,7 +517,9 @@ class RelicWindow(QMainWindow):
         self.open_selected_report_button = PrimaryButton("View selected report")
         self.open_selected_report_button.clicked.connect(self.open_selected_report)
         self.open_selected_folder_button = SecondaryButton("Open scan folder")
-        self.open_selected_folder_button.clicked.connect(self.open_selected_report_folder)
+        self.open_selected_folder_button.clicked.connect(
+            self.open_selected_report_folder
+        )
         history_actions.addWidget(self.open_selected_report_button)
         history_actions.addWidget(self.open_selected_folder_button)
         history_actions.addStretch(1)
@@ -608,7 +631,9 @@ class RelicWindow(QMainWindow):
         self._sidebar_minimum = max(340, min(needed, 405))
         self._sidebar_preferred = max(self._sidebar_minimum, min(needed, 460))
         scroller.setMinimumWidth(self._sidebar_minimum)
-        scroller.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding)
+        scroller.setSizePolicy(
+            QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Expanding
+        )
         self.sidebar_scroll = scroller
         return scroller
 
@@ -766,9 +791,7 @@ class RelicWindow(QMainWindow):
 
         grid = self._metric_grid
         margins = grid.contentsMargins()
-        available = (
-            self._metrics_panel.width() - margins.left() - margins.right()
-        )
+        available = self._metrics_panel.width() - margins.left() - margins.right()
         if available <= 0:
             return getattr(self, "_metric_columns", 5)
         spacing = grid.horizontalSpacing()
@@ -861,9 +884,7 @@ class RelicWindow(QMainWindow):
                 # Without a floor the splitter honours the scroll area's tiny
                 # minimum and the stacked sidebar collapses to its title bar.
                 self.sidebar_scroll.setMinimumHeight(min(280, int(usable * 0.4)))
-                self.body_splitter.setSizes(
-                    [int(usable * 0.45), int(usable * 0.55)]
-                )
+                self.body_splitter.setSizes([int(usable * 0.45), int(usable * 0.55)])
 
     # -- provider ---------------------------------------------------------
 
@@ -1189,7 +1210,8 @@ class RelicWindow(QMainWindow):
             f"Duplicates ({len(bundle.audit.duplicate_groups)})",
         )
         self.tabs.setTabText(
-            self.tabs.indexOf(self.opportunities), f"Opportunities ({len(opportunities)})"
+            self.tabs.indexOf(self.opportunities),
+            f"Opportunities ({len(opportunities)})",
         )
         self.tabs.setTabText(
             self.tabs.indexOf(self.acquisition), f"Reusable Assets ({len(acquisition)})"
@@ -1209,6 +1231,53 @@ class RelicWindow(QMainWindow):
         self.next_card.set_body(summary["next"])
         self.results_empty.setVisible(False)
         self.results_content.setVisible(True)
+        opportunities = bundle.discovery.opportunities if bundle.discovery else []
+        self.opportunity_heading.setVisible(bool(opportunities))
+        for index, card in enumerate(self.opportunity_cards):
+            if index >= len(opportunities):
+                card.setVisible(False)
+                continue
+            opportunity = opportunities[index]
+            card.title_label.setText(
+                str(opportunity.get("title") or "Untitled opportunity")
+            )
+            card.set_body(
+                f"{opportunity.get('summary', '')}\n\n"
+                f"Evidence: {opportunity.get('evidence_strength', 'exploratory')} · "
+                f"Score: {opportunity.get('overall_score', '—')} · "
+                f"Effort: {opportunity.get('extraction_effort', 'unknown')}"
+            )
+            card.setVisible(True)
+        eligible = bool(
+            opportunities
+            and opportunities[0].get("build_pack_readiness") == "eligible"
+            and bundle.entitlement.allows(ProductCapability.BUILD_PACK_PREVIEW)
+        )
+        self.prepare_product_button.setVisible(eligible)
+        self.prepare_product_button.setEnabled(eligible)
+
+    @Slot()
+    def prepare_leading_product(self) -> None:
+        if (
+            self.bundle is None
+            or self.bundle.discovery is None
+            or not self.bundle.discovery.opportunities
+        ):
+            return
+        service = BuildPackService(self.bundle.entitlement)
+        opportunity = self.bundle.discovery.opportunities[0]
+        try:
+            pack = service.prepare(
+                self.bundle.discovery,
+                opportunity["opportunity_id"],
+                audit=self.bundle.audit,
+                source_root=self.bundle.audit.target,
+            )
+            output = (self.report_directory or self.reports_root) / "Build Packs"
+            dialog = BuildPackDialog(service, pack, output, self)
+            dialog.exec()
+        except (PermissionError, ValueError, OSError) as exc:
+            QMessageBox.warning(self, "Prepare this product", str(exc))
 
     def _auto_export_reports(self, bundle: DashboardBundle) -> None:
         """Persist a completed scan in Relic's stable report history."""
