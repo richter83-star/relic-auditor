@@ -16,6 +16,7 @@ from relic_auditor.build_packs import (
     validate_export,
     write_approval,
 )
+from relic_auditor.build_packs.canonical import collision_key
 from relic_auditor.build_packs.policy import hash_file
 from relic_auditor.product_discovery.entitlements import entitlement_for_testing
 
@@ -200,26 +201,34 @@ def test_10_duplicate_asset_aliases_merge(tmp_path: Path):
 
 def test_11_case_and_unicode_destination_collisions_block(tmp_path: Path):
     root, audit, opportunity, service, _ = _context(tmp_path)
-    (root / "src" / "Core.py").write_text("different = True\n", encoding="utf-8")
+    assert collision_key("assets/src/Core.py") == collision_key("assets/src/core.py")
+
+    composed = "src/caf\N{LATIN SMALL LETTER E WITH ACUTE}.py"
+    decomposed = "src/cafe\N{COMBINING ACUTE ACCENT}.py"
+    (root / composed).write_text("first = True\n", encoding="utf-8")
+    (root / decomposed).write_text("second = True\n", encoding="utf-8")
     audit = audit_estate(root)
     hashes = {record.path: record.sha256 for record in audit.files}
-    opportunity["reusable_assets"].append(
-        {
-            "path": "src/Core.py",
-            "sha256": hashes["src/Core.py"],
-            "evidence": ["ev_core"],
-        }
+    opportunity["reusable_assets"].extend(
+        [
+            {
+                "path": path,
+                "sha256": hashes[path],
+                "evidence": ["ev_core"],
+            }
+            for path in (composed, decomposed)
+        ]
     )
     pack = service.prepare(
         {"opportunities": [opportunity]}, "opp_fixture", audit=audit, source_root=root
     )
-    core = [
+    colliding = [
         asset
         for asset in pack.content["assets"]
-        if asset["source_path"].casefold() == "src/core.py"
+        if collision_key(asset["source_path"]) == collision_key(composed)
     ]
-    assert len(core) == 2 and all(
-        asset["classification"] == "blocked" for asset in core
+    assert len(colliding) == 2 and all(
+        asset["classification"] == "blocked" for asset in colliding
     )
 
 

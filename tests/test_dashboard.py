@@ -139,7 +139,9 @@ class DashboardCoreTests(unittest.TestCase):
             }
             self.assertEqual(before, after)
             self.assertIn(output / "cleanup-plan.json", written)
-            plan = json.loads((output / "cleanup-plan.json").read_text(encoding="utf-8"))
+            plan = json.loads(
+                (output / "cleanup-plan.json").read_text(encoding="utf-8")
+            )
             self.assertTrue(plan["advisory_only"])
             self.assertFalse(plan["safety"]["files_deleted"])
             self.assertEqual(plan["decision_counts"]["review"], 1)
@@ -175,8 +177,7 @@ class DashboardCoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             reports = default_reports_root(root / "Documents")
-            target = root / 'Powerhouse: Core'
-            target.mkdir()
+            target = root / "Powerhouse: Core"
             destination = automatic_report_directory(
                 target,
                 reports,
