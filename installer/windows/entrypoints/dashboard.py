@@ -20,7 +20,7 @@ def _smoke_test() -> int:
     app.setApplicationName("Relic Auditor")
     app.setOrganizationName("Dracanus AI")
     window = RelicWindow()
-    if "Relic Auditor 0.10.0" not in window.windowTitle():
+    if "Relic Auditor 0.10.1" not in window.windowTitle():
         return 9
     window.show()
     QTimer.singleShot(350, window.close)

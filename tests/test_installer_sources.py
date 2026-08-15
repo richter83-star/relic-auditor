@@ -45,8 +45,19 @@ def test_build_is_pinned_and_outputs_both_frontends() -> None:
 
 def test_clean_install_and_uninstall_are_release_gates() -> None:
     build = (WINDOWS / "build-installer.ps1").read_text(encoding="utf-8")
+    dashboard = (WINDOWS / "entrypoints" / "dashboard.py").read_text(
+        encoding="utf-8"
+    )
+    installer_readme = (WINDOWS / "INSTALLER-README.md").read_text(
+        encoding="utf-8"
+    )
+    assert EXPECTED_SOURCE_SHA256 in build
     assert "version = \"0\\.10\\.1\"" in build
     assert "version = \"0\\.10\\.0\"" not in build
+    assert "Relic Auditor 0.10.1" in dashboard
+    assert "Relic Auditor 0.10.0" not in dashboard
+    assert "Relic-Auditor-Setup-0.10.1-x64.exe" in installer_readme
+    assert "Relic-Auditor-Setup-0.10.0-x64.exe" not in installer_readme
     for required in (
         "Frozen source hash mismatch",
         "$env:TEMP = $TestTempRoot",
