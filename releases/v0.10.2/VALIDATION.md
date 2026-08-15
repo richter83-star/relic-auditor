@@ -19,11 +19,36 @@ The two deselected Qt scrollbar assertions also fail on the unchanged v0.10.1
 baseline under the Linux offscreen platform. They are retained for the native
 Windows workflow rather than changed to hide the platform difference.
 
+## Windows workflow
+
+GitHub Actions run `31870696979` passed on commit
+`9d6c23059e6b3adc06a615f93022bea32af757fc`. The hash-pinned Windows workflow
+completed all of these release gates:
+
+- source tests with no exclusions;
+- bundled CLI and GUI smoke tests;
+- clean installation;
+- repeat installation into the same application directory;
+- stale PyInstaller runtime cleanup;
+- installed CLI and GUI smoke tests;
+- uninstall with user configuration preserved; and
+- CLI PATH cleanup.
+
+Verified Windows installer:
+
+- file: `Relic-Auditor-Setup-0.10.2-x64.exe`
+- size: `69,593,574` bytes
+- SHA-256: `745c720c1a15af3aa5c7920a642b1716eee9ef2fe4e67bcaeb765a95335cd328`
+- Authenticode: `NotSigned`
+- workflow artifact: `9243382828`
+- artifact ZIP SHA-256:
+  `726f67b628f5b45961fb16bfd51cbaafeb2517a2cc1479f9504c7172d8211719`
+
+The unsigned installer is verified for manual testing, but the in-application
+updater correctly refuses to run it.
+
 ## Still required before automatic updates can be activated
 
-- Commit and push the reviewed v0.10.2 change set.
-- Run the Windows installer workflow and pass its clean-install, repeat-install,
-  stale-runtime cleanup, CLI, GUI, and uninstall checks.
 - Sign the installer with a trusted Authenticode certificate whose certificate
   simple name is exactly `Dracanus AI`.
 - Publish the signed installer and a matching stable manifest at permanent,

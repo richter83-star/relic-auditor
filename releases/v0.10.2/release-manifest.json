@@ -21,17 +21,26 @@
   ],
   "baseline_commit": "31aa5af4c4a621ed8d8397fa743b6ccf441bdcc2",
   "installer": {
+    "artifact_id": 9243382828,
+    "artifact_zip_sha256": "726f67b628f5b45961fb16bfd51cbaafeb2517a2cc1479f9504c7172d8211719",
     "authenticode_required_for_in_app_install": true,
-    "native_validation": "pending-windows-workflow",
+    "authenticode_status": "NotSigned",
+    "file": "Relic-Auditor-Setup-0.10.2-x64.exe",
+    "native_validation": "passed",
+    "sha256": "745c720c1a15af3aa5c7920a642b1716eee9ef2fe4e67bcaeb765a95335cd328",
+    "size_bytes": 69593574,
     "source_sha256_pinned": true,
-    "status": "prepared-not-built"
+    "status": "verified-unsigned",
+    "workflow_run_id": 31870696979,
+    "workflow_source_commit": "9d6c23059e6b3adc06a615f93022bea32af757fc"
   },
   "product": "Relic Auditor",
   "release_status": "branch-rc-no-tag-no-release",
   "tests": {
     "compileall": "passed",
     "frozen_source_suite": "352-passed-1-skipped-2-platform-deselected",
-    "qt_and_repository_suite": "358-passed-1-skipped-2-platform-deselected",
+    "native_windows_installer_workflow": "passed",
+    "qt_and_repository_suite": "358-passed-1-skipped-2-linux-platform-deselected",
     "updater_and_installer_source_gates": "25-passed",
     "wheel_cli_smoke": "passed"
   },
