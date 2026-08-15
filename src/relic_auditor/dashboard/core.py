@@ -318,6 +318,8 @@ def run_dashboard_audit(
     target: Path,
     options: DashboardOptions | None = None,
     progress: ProgressCallback | None = None,
+    *,
+    entitlement: Entitlement = FREE_ENTITLEMENT,
 ) -> DashboardBundle:
     """Run the existing engines without writing reports or a persistent cache."""
 
@@ -391,6 +393,7 @@ def run_dashboard_audit(
         discovery=discovery,
         acquisition=acquisition,
         llm_reasoning=llm_reasoning,
+        entitlement=entitlement,
     )
 
 

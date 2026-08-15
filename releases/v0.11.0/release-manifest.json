@@ -1,0 +1,37 @@
+{
+  "architecture": "any-python; Windows installer pending workflow",
+  "artifacts": [
+    {
+      "bytes": 314411,
+      "file": "relic-auditor-0.11.0.zip",
+      "role": "frozen-source",
+      "sha256": "5fbfedd72b61f97def61691200e9c40b61a6a5309f34e4882051db2a2e675e70"
+    },
+    {
+      "bytes": 213628,
+      "file": "relic_auditor-0.11.0-py3-none-any.whl",
+      "role": "wheel",
+      "sha256": "aee1b39d248d1208923998f15513e89235c6e7bf97d3a91e9b14f1b8e767fe2a"
+    },
+    {
+      "bytes": 247719,
+      "file": "relic_auditor-0.11.0.tar.gz",
+      "role": "source-distribution",
+      "sha256": "6503c00137e583f3345c23d64b25001826ecd4499783386b7199c5b919dd0a88"
+    }
+  ],
+  "github_release_created": false,
+  "licensing": {
+    "client": "implemented-and-tested",
+    "production_activation": "not-provisioned",
+    "production_public_keys": 0
+  },
+  "product": "Relic Auditor",
+  "release_status": "local-release-candidate",
+  "tag_created": false,
+  "version": "0.11.0",
+  "windows_installer": {
+    "artifact": "Relic-Auditor-Setup-0.11.0-x64.exe",
+    "status": "pending-windows-workflow"
+  }
+}

@@ -5,6 +5,16 @@ estates. It reads loose files, folders, and ZIP files, detects project types, ma
 finds byte-identical duplicates, and produces review candidates. It never imports,
 executes, installs, changes, or deletes scanned code.
 
+v0.11.0 adds the approval-gated Assisted Build Supervisor. After a Premium
+user reviews and exports a checksum-verified Build Pack, Relic creates a
+separate managed workspace, displays one immutable builder action, requires
+each capability to be approved, checkpoints before execution, and stops at an
+unpublished candidate with a complete diff. It also adds the fail-closed client
+for signed Free/Pro/Premium entitlements. Production activation is deliberately
+not provisioned in this RC, so ordinary installs remain Free until a real
+KMS-backed licensing service and pinned public key exist. See
+[docs/v0.11.0-release-notes.md](docs/v0.11.0-release-notes.md).
+
 v0.10.2 adds a fail-closed Windows update path. Installed builds check the
 stable channel at a bounded cadence, the header always provides a manual
 **Check updates** action, and a three-step dialog explains version selection,
@@ -39,8 +49,23 @@ relic build-pack validate /path/to/Relic-Build-Packs/bp_ID --json
 ```
 
 Production defaults to Free and the CLI has no entitlement-promotion flag.
-The lifecycle commands become available only when a verified host injects the
-appropriate entitlement.
+The lifecycle commands become available only when a signed entitlement or an
+explicit test host supplies the appropriate capability.
+
+Assisted build CLI lifecycle:
+
+```bash
+relic build start /path/to/bp_ID --sessions /path/to/Relic-Build-Sessions --json
+relic build plan /path/to/session_ID --file reviewed-actions.json --json
+relic build approve /path/to/session_ID --action action_ID \
+  --capability file_write --actor "reviewer" --json
+relic build run /path/to/session_ID --action action_ID --json
+relic build diff /path/to/session_ID --json
+relic build finalize /path/to/session_ID --json
+```
+
+See [docs/assisted-build-supervisor.md](docs/assisted-build-supervisor.md) for
+the complete capability, checkpoint, budget, and provider model.
 
 v0.8.3 turns the desktop dashboard into a progressive-disclosure product for
 non-technical users. The default shell has only Scan, Results, and Reports;
@@ -83,7 +108,7 @@ CLI plus the interactive desktop dashboard:
 python -m pip install -e ".[gui]"
 ```
 
-Dashboard plus secure OAuth credential storage:
+Dashboard plus all optional interfaces:
 
 ```bash
 python -m pip install -e ".[all]"
@@ -133,8 +158,10 @@ The default dashboard provides:
 Completed dashboard scans automatically write deterministic JSON/Markdown
 reports and `cleanup-plan.json` under the per-user Reports folder. Report
 output is still rejected if it is inside the scanned target. Planning
-decisions are advisory metadata only. There is deliberately no execute,
-install, extract, move, rename, or delete control.
+decisions are advisory metadata only. The scan and report areas deliberately
+have no execute, install, extract, move, rename, or delete control. Premium
+Assisted Build is a later, separately approved workflow operating only on a
+managed Build Pack workspace.
 
 Analysis modes:
 

@@ -56,6 +56,7 @@ from PySide6.QtWidgets import (
 
 from .. import __version__
 from ..build_packs import BuildPackService
+from ..licensing import load_cached_entitlement
 from ..updater import (
     DEFAULT_UPDATE_MANIFEST_URL,
     PreparedUpdate,
@@ -66,7 +67,7 @@ from ..updater import (
     save_update_check_state,
     should_check_automatically,
 )
-from ..product_discovery.entitlements import ProductCapability
+from ..product_discovery.entitlements import Entitlement, ProductCapability
 from ..llm.claude_code import (
     DEFAULT_EFFORT,
     MODEL_ALIASES,
@@ -112,6 +113,8 @@ from .widgets import (
     public_record,
 )
 from .build_pack_dialog import BuildPackDialog
+from .license_dialog import LicenseDialog
+from .supervisor_dialog import AssistedBuildDialog
 from .update_dialog import UpdateDialog
 
 
@@ -122,10 +125,13 @@ class ScanWorker(QObject):
     finished = Signal(object)
     failed = Signal(str)
 
-    def __init__(self, target: Path, options: DashboardOptions) -> None:
+    def __init__(
+        self, target: Path, options: DashboardOptions, entitlement: Entitlement
+    ) -> None:
         super().__init__()
         self.target = target
         self.options = options
+        self.entitlement = entitlement
         self._cancelled = False
 
     def cancel(self) -> None:
@@ -145,7 +151,12 @@ class ScanWorker(QObject):
             self.progress.emit(value, message)
 
         try:
-            bundle = run_dashboard_audit(self.target, self.options, report)
+            bundle = run_dashboard_audit(
+                self.target,
+                self.options,
+                report,
+                entitlement=self.entitlement,
+            )
         except _ScanCancelled:
             self.failed.emit("__cancelled__")
             return
@@ -200,9 +211,15 @@ class UpdateDownloadWorker(QObject):
 
 
 class RelicWindow(QMainWindow):
-    def __init__(self, initial_target: Path | None = None) -> None:
+    def __init__(
+        self,
+        initial_target: Path | None = None,
+        *,
+        entitlement: Entitlement | None = None,
+    ) -> None:
         super().__init__()
         self.bundle: DashboardBundle | None = None
+        self.entitlement = entitlement or load_cached_entitlement()
         self.report_directory: Path | None = None
         self._scan_thread: QThread | None = None
         self._scan_worker: ScanWorker | None = None
@@ -414,10 +431,10 @@ class RelicWindow(QMainWindow):
         layout.addLayout(identity)
         layout.addStretch(1)
 
-        self.trust_badge = StatusBadge("active", "LOCAL · READ-ONLY · NO EXECUTION")
+        self.trust_badge = StatusBadge("active", "SCAN TARGET · READ-ONLY")
         self.trust_badge.setToolTip(
-            "Relic reads and classifies. It never executes, installs, moves, "
-            "or deletes anything in the scanned target."
+            "Audits only read and classify the selected target. Assisted builds, "
+            "when explicitly approved, run later in a separate managed workspace."
         )
         self.update_button = SecondaryButton("Check updates")
         self.update_button.setAccessibleName("Check for Relic Auditor updates")
@@ -425,7 +442,17 @@ class RelicWindow(QMainWindow):
         self.version_label = QLabel(f"v{__version__}")
         self.version_label.setObjectName("dimLabel")
 
+        self.plan_badge = StatusBadge(
+            "ready" if self.entitlement.license_id else "idle",
+            f"PLAN: {self.entitlement.tier.value.upper()}",
+        )
+        self.plan_button = SecondaryButton("Manage plan")
+        self.plan_button.setAccessibleName("Manage Relic plan and license")
+        self.plan_button.clicked.connect(self.manage_plan)
+
         layout.addWidget(self.trust_badge)
+        layout.addWidget(self.plan_badge)
+        layout.addWidget(self.plan_button)
         layout.addWidget(self.update_button)
         layout.addWidget(self.version_label)
         return header
@@ -1269,7 +1296,7 @@ class RelicWindow(QMainWindow):
         self.scan_panel.set_counters("0s", None, None)
 
         thread = QThread(self)
-        worker = ScanWorker(target, options)
+        worker = ScanWorker(target, options, self.entitlement)
         worker.moveToThread(thread)
         thread.started.connect(worker.run)
         worker.progress.connect(self._scan_progress)
@@ -1537,6 +1564,23 @@ class RelicWindow(QMainWindow):
         self.prepare_product_button.setToolTip(note)
 
     @Slot()
+    def manage_plan(self) -> None:
+        dialog = LicenseDialog(self.entitlement, self)
+        dialog.entitlement_changed.connect(self._entitlement_changed)
+        dialog.exec()
+
+    @Slot(object)
+    def _entitlement_changed(self, entitlement: Entitlement) -> None:
+        self.entitlement = entitlement
+        if self.bundle is not None:
+            self.bundle.entitlement = entitlement
+            self._load_plain_english_results(self.bundle)
+        self.plan_badge.set_status(
+            "ready" if entitlement.license_id else "idle",
+            f"PLAN: {entitlement.tier.value.upper()}",
+        )
+
+    @Slot()
     def prepare_leading_product(self) -> None:
         if (
             self.bundle is None
@@ -1563,7 +1607,26 @@ class RelicWindow(QMainWindow):
                 action_text="Continue preparing product",
                 status="active",
             )
-            dialog.exec()
+            if dialog.exec():
+                exported = dialog.export_selected()
+                self.status_message.setText(
+                    f"Build Pack exported · {exported.directory}"
+                )
+                self._set_workflow_step(
+                    5,
+                    "Build in a managed workspace",
+                    "Follow the numbered supervisor steps, approve exact capabilities, "
+                    "then inspect every changed file before accepting a candidate.",
+                    action_key="prepare-product",
+                    action_text="Continue assisted build",
+                    status="active",
+                )
+                AssistedBuildDialog(
+                    self.bundle.entitlement,
+                    exported.directory,
+                    output.parent / "Build Sessions",
+                    self,
+                ).exec()
         except (PermissionError, ValueError, OSError) as exc:
             QMessageBox.warning(self, "Prepare this product", str(exc))
 
@@ -1942,14 +2005,18 @@ class RelicWindow(QMainWindow):
 _OPEN_WINDOWS: list["RelicWindow"] = []
 
 
-def launch_dashboard(initial_target: Path | None = None) -> int:
+def launch_dashboard(
+    initial_target: Path | None = None,
+    *,
+    entitlement: Entitlement | None = None,
+) -> int:
     app = QApplication.instance()
     owns_app = app is None
     if app is None:
         app = QApplication(sys.argv[:1])
     app.setApplicationName("Relic Auditor")
     app.setOrganizationName("Dracanus AI")
-    window = RelicWindow(initial_target)
+    window = RelicWindow(initial_target, entitlement=entitlement)
     _OPEN_WINDOWS.append(window)
     window.destroyed.connect(
         lambda: _OPEN_WINDOWS.remove(window) if window in _OPEN_WINDOWS else None

@@ -10,7 +10,12 @@ import uuid
 from pathlib import Path, PurePosixPath
 from typing import Callable, Mapping
 
-from .canonical import canonical_bytes, digest, normalized_relative_path
+from .canonical import (
+    canonical_bytes,
+    digest,
+    normalized_relative_path,
+    source_root_path_fingerprint,
+)
 from .policy import hash_file, verify_source_unchanged
 from .renderers import render_build_pack_files
 from .schemas import (
@@ -20,8 +25,6 @@ from .schemas import (
     ExportValidationError,
     PreparedBuildPack,
 )
-
-
 def validate_approval(
     pack: PreparedBuildPack, approval: ApprovalManifest
 ) -> list[Mapping[str, object]]:
@@ -106,6 +109,7 @@ def export_build_pack(
             "Build Packs must be exported outside the scanned target"
         )
     destination_root.mkdir(parents=True, exist_ok=True)
+    source_root_hash = source_root_path_fingerprint(root)
     verify_source_unchanged(root, approved)
     staging = destination_root / f".{pack.pack_id}.{uuid.uuid4().hex}.staging"
     staging.mkdir()
@@ -128,6 +132,7 @@ def export_build_pack(
             "content_hash": pack.content_hash,
             "approval_id": approval.approval_id,
             "approved_assets": approved,
+            "source_root_path_sha256": source_root_hash,
             "complete": True,
         }
         generated["build-pack-manifest.json"] = canonical_bytes(manifest)
@@ -203,8 +208,16 @@ def validate_export(directory: Path) -> dict[str, object]:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if not manifest.get("complete") or manifest.get("pack_id") != pack.get("pack_id"):
         raise ExportValidationError("Build Pack manifest is inconsistent")
+    source_root_hash = manifest.get("source_root_path_sha256")
+    if source_root_hash is not None and (
+        not isinstance(source_root_hash, str)
+        or len(source_root_hash) != 64
+        or any(character not in "0123456789abcdef" for character in source_root_hash)
+    ):
+        raise ExportValidationError("Build Pack source-root boundary is invalid")
     return {
         "valid": True,
         "pack_id": pack["pack_id"],
         "content_hash": pack["content_hash"],
+        "source_root_path_sha256": source_root_hash,
     }

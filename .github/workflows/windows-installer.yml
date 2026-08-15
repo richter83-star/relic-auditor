@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - installer/v0.10.0
+      - installer/v0.11.0
     paths:
       - ".github/workflows/windows-installer.yml"
       - "installer/windows/**"
-      - "releases/relic-auditor-0.10.2.zip"
+      - "releases/relic-auditor-0.11.0.zip"
       - "tests/**"
 
 permissions:
@@ -19,7 +19,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 50
     env:
-      RELIC_SOURCE_SHA256: 190740e2d8f2d30238858fe2085c48ea9e8aed873d6cb0b22b4bb6f8f70dc7bc
+      RELIC_SOURCE_SHA256: 5fbfedd72b61f97def61691200e9c40b61a6a5309f34e4882051db2a2e675e70
       WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
       WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
 
@@ -35,12 +35,12 @@ jobs:
           cache: "pip"
           cache-dependency-path: installer/windows/requirements-build.txt
 
-      - name: Verify frozen v0.10.2 source
+      - name: Verify frozen v0.11.0 source
         shell: pwsh
         run: |
-          $archive = "releases/relic-auditor-0.10.2.zip"
+          $archive = "releases/relic-auditor-0.11.0.zip"
           if (-not (Test-Path -LiteralPath $archive)) {
-            $parts = Get-ChildItem -LiteralPath "releases/relic-auditor-0.10.2.zip.parts" -Filter "part-*" -File | Sort-Object Name
+            $parts = Get-ChildItem -LiteralPath "releases/relic-auditor-0.11.0.zip.parts" -Filter "part-*" -File | Sort-Object Name
             if (-not $parts) { throw "Frozen source archive and transport parts are both missing." }
             $destination = [IO.File]::Open($archive, [IO.FileMode]::Create, [IO.FileAccess]::Write)
             try {
@@ -80,14 +80,14 @@ jobs:
         run: |
           if ("${{ steps.signing.outputs.enabled }}" -eq "true") {
             & "installer/windows/build-installer.ps1" `
-              -SourceArchive "releases/relic-auditor-0.10.2.zip" `
+              -SourceArchive "releases/relic-auditor-0.11.0.zip" `
               -ExpectedSourceSha256 $env:RELIC_SOURCE_SHA256 `
               -OutputDirectory "release-output" `
               -SigningCertificate "${{ steps.signing.outputs.certificate }}" `
               -SigningPassword $env:WINDOWS_SIGNING_PFX_PASSWORD
           } else {
             & "installer/windows/build-installer.ps1" `
-              -SourceArchive "releases/relic-auditor-0.10.2.zip" `
+              -SourceArchive "releases/relic-auditor-0.11.0.zip" `
               -ExpectedSourceSha256 $env:RELIC_SOURCE_SHA256 `
               -OutputDirectory "release-output"
           }
@@ -101,7 +101,7 @@ jobs:
       - name: Upload verified installer
         uses: actions/upload-artifact@v4
         with:
-          name: Relic-Auditor-0.10.2-Windows-x64
+          name: Relic-Auditor-0.11.0-Windows-x64
           path: release-output/*
           if-no-files-found: error
           compression-level: 0

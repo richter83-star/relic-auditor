@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import getpass
 import json
 import sys
 from pathlib import Path
@@ -31,6 +32,7 @@ from .product_discovery.reports import write_product_reports
 from .technical_truth import TechnicalTruthConfig, analyze_technical_truth
 from .technical_truth.reports import write_technical_truth_reports
 from .build_packs.compatibility import load_prepared_pack
+from .build_packs.canonical import digest
 from .build_packs.schemas import PreparedBuildPack
 from .build_packs.service import (
     BuildPackService,
@@ -39,6 +41,21 @@ from .build_packs.service import (
     write_prepared_pack,
 )
 from .product_discovery.entitlements import Entitlement, FREE_ENTITLEMENT
+from .licensing import (
+    PRODUCTION_PUBLIC_KEYS,
+    KeyringLicenseStore,
+    activate_license,
+    deactivate_license,
+    installation_id,
+    load_cached_entitlement,
+)
+from .supervisor import (
+    ActionProposal,
+    BudgetLimits,
+    Capability,
+    StaticAdapter,
+    SupervisorService,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -254,20 +271,124 @@ def build_parser() -> argparse.ArgumentParser:
     )
     validate.add_argument("directory", type=Path)
     validate.add_argument("--json", action="store_true")
+    license_command = commands.add_parser(
+        "license", help="activate, inspect, or remove a signed Relic entitlement"
+    )
+    license_actions = license_command.add_subparsers(
+        dest="license_action", required=True
+    )
+    license_status = license_actions.add_parser(
+        "status", help="show the current non-sensitive product entitlement"
+    )
+    license_status.add_argument("--json", action="store_true")
+    license_activate = license_actions.add_parser(
+        "activate", help="activate a license using the OS credential vault"
+    )
+    license_activate.add_argument(
+        "--key-stdin",
+        action="store_true",
+        help="read the license key from standard input instead of a hidden prompt",
+    )
+    license_deactivate = license_actions.add_parser(
+        "deactivate", help="remove the cached entitlement from this installation"
+    )
+    license_deactivate.add_argument("--yes", action="store_true")
+
+    supervisor = commands.add_parser(
+        "build", help="run a Premium approval-gated build in an isolated workspace"
+    )
+    build_supervisor_actions = supervisor.add_subparsers(
+        dest="supervisor_action", required=True
+    )
+    start = build_supervisor_actions.add_parser(
+        "start", help="create a managed session from a verified Build Pack"
+    )
+    start.add_argument("build_pack", type=Path)
+    start.add_argument("--sessions", type=Path, required=True)
+    start.add_argument("--max-actions", type=int, default=100)
+    start.add_argument("--max-files", type=int, default=1_000)
+    start.add_argument("--max-write-mb", type=int, default=100)
+    start.add_argument("--max-process-seconds", type=float, default=1_800.0)
+    start.add_argument("--max-network-actions", type=int, default=10)
+    start.add_argument("--max-external-actions", type=int, default=0)
+    start.add_argument("--json", action="store_true")
+    supervisor_status = build_supervisor_actions.add_parser(
+        "status", help="show session state, budgets, and pending approvals"
+    )
+    supervisor_status.add_argument("session", type=Path)
+    supervisor_status.add_argument("--json", action="store_true")
+    plan = build_supervisor_actions.add_parser(
+        "plan", help="queue a reviewed JSON action plan"
+    )
+    plan.add_argument("session", type=Path)
+    plan.add_argument("--file", type=Path, required=True)
+    plan.add_argument("--json", action="store_true")
+    approve = build_supervisor_actions.add_parser(
+        "approve", help="grant exact capabilities to one immutable action"
+    )
+    approve.add_argument("session", type=Path)
+    approve.add_argument("--action", required=True)
+    approve.add_argument(
+        "--capability",
+        action="append",
+        choices=[item.value for item in Capability],
+        default=[],
+    )
+    approve.add_argument("--actor", required=True)
+    approve.add_argument("--json", action="store_true")
+    run_action = build_supervisor_actions.add_parser(
+        "run", help="execute one fully approved action"
+    )
+    run_action.add_argument("session", type=Path)
+    run_action.add_argument("--action", required=True)
+    run_action.add_argument("--json", action="store_true")
+    for action_name, help_text in (
+        ("diff", "show all changes from the initial workspace"),
+        ("checkpoint", "create a recoverable workspace checkpoint"),
+        ("pause", "pause the session between actions"),
+        ("resume", "resume a paused or failed session"),
+        ("cancel", "cancel the managed session"),
+        ("finalize", "stop at a reviewed, unpublished build candidate"),
+    ):
+        action_parser = build_supervisor_actions.add_parser(action_name, help=help_text)
+        action_parser.add_argument("session", type=Path)
+        action_parser.add_argument("--json", action="store_true")
     return parser
 
 
 def main(
     argv: list[str] | None = None,
     *,
-    entitlement: Entitlement = FREE_ENTITLEMENT,
+    entitlement: Entitlement | None = None,
+    license_public_keys=None,
+    license_store=None,
+    license_opener=None,
+    license_device_id: str | None = None,
 ) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    keys = PRODUCTION_PUBLIC_KEYS if license_public_keys is None else license_public_keys
+    store = license_store or KeyringLicenseStore()
+    active_entitlement = entitlement or load_cached_entitlement(
+        public_keys=keys,
+        store=store,
+        device_id=license_device_id,
+    )
     if args.command == "llm":
         return _handle_llm_command(args)
+    if args.command == "license":
+        return _handle_license_command(
+            args,
+            active_entitlement,
+            public_keys=keys,
+            store=store,
+            opener=license_opener,
+            device_id=license_device_id,
+        )
     if args.command == "build-pack":
-        return _handle_build_pack_command(args, entitlement)
+        return _handle_build_pack_command(args, active_entitlement)
+    if args.command == "build":
+        return _handle_supervisor_command(args, active_entitlement)
     if getattr(args, "llm_required", False) and not getattr(args, "llm_profile", None):
         parser.error("--llm-required requires --llm-profile")
     if args.command == "dashboard":
@@ -291,7 +412,7 @@ def main(
                 )
                 return 2
             raise
-        return launch_dashboard(args.target)
+        return launch_dashboard(args.target, entitlement=active_entitlement)
 
     if args.command == "monitor":
         if args.debounce_seconds < 0 or args.poll_seconds <= 0:
@@ -651,6 +772,162 @@ def _default_base_url(protocol: str) -> str:
     if protocol == "anthropic-messages":
         return "https://api.anthropic.com/v1"
     return "https://api.openai.com/v1"
+
+
+def _handle_license_command(
+    args: argparse.Namespace,
+    entitlement: Entitlement,
+    *,
+    public_keys,
+    store,
+    opener=None,
+    device_id: str | None = None,
+) -> int:
+    try:
+        if args.license_action == "status":
+            payload = entitlement.public()
+            if args.json:
+                print(json.dumps(payload, sort_keys=True))
+            else:
+                print(f"Plan: {payload['tier'].title()}")
+                print(f"Licensed: {'yes' if payload['licensed'] else 'no'}")
+                print(f"Valid until: {payload['valid_until'] or 'not applicable'}")
+            return 0
+        if args.license_action == "deactivate":
+            if not args.yes:
+                print(
+                    "error: deactivation requires --yes; this removes the cached "
+                    "entitlement from this installation",
+                    file=sys.stderr,
+                )
+                return 2
+            deactivate_license(store=store)
+            print("Relic license removed. This installation now defaults to Free.")
+            return 0
+        key = (
+            sys.stdin.readline().strip()
+            if args.key_stdin
+            else getpass.getpass("Relic license key: ").strip()
+        )
+        kwargs = {
+            "app_version": __version__,
+            "public_keys": public_keys,
+            "store": store,
+            "device_id": device_id or installation_id(),
+        }
+        if opener is not None:
+            kwargs["opener"] = opener
+        activated = activate_license(key, **kwargs)
+        print(
+            f"Relic {activated.tier.value.title()} activated for this installation."
+        )
+        print(f"Offline entitlement valid until: {activated.valid_until}")
+        return 0
+    except (RuntimeError, ValueError, OSError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+
+def _load_action_plan(path: Path) -> tuple[ActionProposal, ...]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError) as exc:
+        raise ValueError("action plan is missing or invalid JSON") from exc
+    rows = value.get("actions") if isinstance(value, dict) else None
+    if not isinstance(rows, list) or not rows:
+        raise ValueError("action plan must contain a non-empty actions list")
+    actions = []
+    for row in rows:
+        if not isinstance(row, dict):
+            raise ValueError("every action plan item must be an object")
+        action = ActionProposal.create(
+            row.get("operation", ""),
+            str(row.get("summary", "")),
+            row.get("capabilities", []),
+            row.get("parameters", {}),
+            risk=str(row.get("risk", "review")),
+        )
+        supplied = row.get("action_id")
+        if supplied is not None and supplied != action.action_id:
+            raise ValueError("action plan contains a stale or tampered action_id")
+        actions.append(action)
+    return tuple(actions)
+
+
+def _handle_supervisor_command(
+    args: argparse.Namespace, entitlement: Entitlement
+) -> int:
+    service = SupervisorService(entitlement)
+    try:
+        if args.supervisor_action == "start":
+            session = service.create_session(
+                args.build_pack,
+                args.sessions,
+                budgets=BudgetLimits(
+                    max_actions=args.max_actions,
+                    max_written_files=args.max_files,
+                    max_written_bytes=args.max_write_mb * 1024 * 1024,
+                    max_process_seconds=args.max_process_seconds,
+                    max_network_actions=args.max_network_actions,
+                    max_external_actions=args.max_external_actions,
+                ),
+            )
+            payload = {**session.public(), "directory": str(session.root)}
+        else:
+            session = service.load_session(args.session)
+            if args.supervisor_action == "status":
+                actions = service.list_actions(session)
+                payload = {
+                    **session.public(),
+                    "directory": str(session.root),
+                    "actions": [item.public(include_parameters=False) for item in actions],
+                }
+            elif args.supervisor_action == "plan":
+                actions = _load_action_plan(args.file)
+                queued = service.plan(session, StaticAdapter(actions, name="reviewed-json-plan"))
+                payload = {"session_id": session.session_id, "queued": [item.public(include_parameters=False) for item in queued]}
+            elif args.supervisor_action == "approve":
+                grant = service.approve(
+                    session,
+                    args.action,
+                    args.capability,
+                    actor=args.actor,
+                )
+                payload = grant.public()
+            elif args.supervisor_action == "run":
+                payload = service.execute(session, args.action)
+            elif args.supervisor_action == "diff":
+                payload = service.diff(session)
+            elif args.supervisor_action == "checkpoint":
+                payload = service.create_checkpoint(session)
+                payload = {"checkpoint_id": payload["checkpoint_id"], "manifest_hash": digest(payload["manifest"])}
+            elif args.supervisor_action == "pause":
+                service.pause(session)
+                payload = {"session_id": session.session_id, "state": session.state.value}
+            elif args.supervisor_action == "resume":
+                service.resume(session)
+                payload = {"session_id": session.session_id, "state": session.state.value}
+            elif args.supervisor_action == "cancel":
+                service.cancel(session)
+                payload = {"session_id": session.session_id, "state": session.state.value}
+            else:
+                candidate = service.finalize_candidate(session)
+                payload = {"session_id": session.session_id, "state": session.state.value, "candidate": str(candidate)}
+        if getattr(args, "json", False):
+            print(json.dumps(payload, sort_keys=True))
+        else:
+            print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
+    except (
+        FileNotFoundError,
+        NotADirectoryError,
+        PermissionError,
+        RuntimeError,
+        ValueError,
+        OSError,
+    ) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
 
 
 def _handle_build_pack_command(

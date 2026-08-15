@@ -1,12 +1,18 @@
 # Forward release contract
 
-## v0.11.0 — Assisted Build Supervisor
+## Delivered in v0.11.0 — Assisted Build Supervisor
 
-Consume a verified v0.10 Build Pack and add process-capable adapters only behind
-explicit capability and approval gates in a new Relic-managed workspace. Gate
-file writes, shell, dependencies, network, credentials, Git, and external
-actions separately. Keep an append-only ledger, budgets, checkpoints,
-cancel/resume, diffs, and fake-adapter tests. Stop at a reviewed build candidate.
+v0.11 consumes a verified v0.10 Build Pack and launches process-capable adapters
+only behind explicit capability and approval gates in a new Relic-managed
+workspace. File writes, processes, dependencies, network, credentials, Git, and
+external actions are separately modeled. Sessions keep a hash-chained ledger,
+budgets, checkpoints, pause/resume/cancel controls, complete diffs, and
+fake-adapter tests. The terminal state is a review-required, unpublished build
+candidate.
+
+The release also contains a fail-closed signed-entitlement client. Production
+activation still requires the Dracanus AI licensing service and a KMS-held
+Ed25519 signing key; no desktop flag or local file can promote a plan.
 
 ## v1.0.0 — Relic Revival Loop
 

@@ -95,7 +95,9 @@ class BuildPackDialog(QDialog):
         self.stack.addWidget(
             self._text_page(
                 "Builder handoff",
-                "Codex, Claude Code, and generic render-only handoffs will be included.",
+                "Finish this review to export the verified Build Pack. Relic will then "
+                "open a separate, numbered Assisted Build Supervisor where every "
+                "builder capability must be approved before anything can run.",
             )
         )
 

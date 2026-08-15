@@ -17,12 +17,20 @@ class ProductCapability(str, Enum):
     BUILD_PACK_EXPORT = "build_pack_export"
     BUILDER_HANDOFFS = "builder_handoffs"
     PREMIUM_ROADMAP = "premium_roadmap"
+    SUPERVISED_BUILD = "supervised_build"
+    LICENSE_ACTIVATION = "license_activation"
 
 
 _CAPABILITIES = {
-    ProductTier.FREE: frozenset({ProductCapability.AUDIT}),
+    ProductTier.FREE: frozenset(
+        {ProductCapability.AUDIT, ProductCapability.LICENSE_ACTIVATION}
+    ),
     ProductTier.PRO: frozenset(
-        {ProductCapability.AUDIT, ProductCapability.OPPORTUNITIES}
+        {
+            ProductCapability.AUDIT,
+            ProductCapability.OPPORTUNITIES,
+            ProductCapability.LICENSE_ACTIVATION,
+        }
     ),
     ProductTier.PREMIUM: frozenset(ProductCapability),
 }
@@ -30,15 +38,18 @@ _CAPABILITIES = {
 
 @dataclass(frozen=True)
 class Entitlement:
-    """Host-injected product entitlement.
+    """Verified product entitlement.
 
-    This is an engine boundary, not a licensing server. Production defaults to
-    Free and no CLI flag or environment variable can promote the tier.
+    Production loads this boundary only from a signed, device-bound token and
+    defaults to Free. No CLI flag or environment variable can promote the tier.
+    Tests may inject it explicitly without weakening the production path.
     """
 
     tier: ProductTier = ProductTier.FREE
     subject: str = "local-default"
     source: str = "production-default"
+    license_id: str | None = None
+    valid_until: str | None = None
 
     def allows(self, capability: ProductCapability) -> bool:
         return capability in _CAPABILITIES[self.tier]
@@ -53,6 +64,9 @@ class Entitlement:
         return {
             "tier": self.tier.value,
             "capabilities": sorted(item.value for item in _CAPABILITIES[self.tier]),
+            "source": self.source,
+            "licensed": self.license_id is not None,
+            "valid_until": self.valid_until,
         }
 
 

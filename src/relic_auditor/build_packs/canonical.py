@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import unicodedata
-from pathlib import PurePosixPath
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 
@@ -42,3 +43,10 @@ def normalized_relative_path(path: str) -> str:
 
 def collision_key(path: str) -> str:
     return unicodedata.normalize("NFC", path).casefold()
+
+
+def source_root_path_fingerprint(path: Path) -> str:
+    """One-way path identity used to keep later workspaces out of the source."""
+
+    normalized = os.path.normcase(str(path.expanduser().resolve()))
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
