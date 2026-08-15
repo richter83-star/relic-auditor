@@ -1,5 +1,5 @@
 {
-  "architecture": "any-python; Windows installer pending workflow",
+  "architecture": "any-python; Windows x64 installer verified",
   "artifacts": [
     {
       "bytes": 314411,
@@ -27,11 +27,22 @@
     "production_public_keys": 0
   },
   "product": "Relic Auditor",
-  "release_status": "local-release-candidate",
+  "release_status": "branch-rc-no-tag-no-release",
   "tag_created": false,
   "version": "0.11.0",
   "windows_installer": {
+    "artifact_id": 9250519145,
+    "artifact_zip_bytes": 74199597,
+    "artifact_zip_sha256": "5568a5ee47f4ff8a6d91e68b2e15bd78307b7139647d1c19d80185d94a66ee40",
+    "authenticode_required_for_in_app_install": true,
+    "authenticode_status": "NotSigned",
     "artifact": "Relic-Auditor-Setup-0.11.0-x64.exe",
-    "status": "pending-windows-workflow"
+    "bytes": 74195364,
+    "native_validation": "passed",
+    "sha256": "c0016dbe82370ce8b34e3362c95283a84d32653ea5afd0073ab2f004a414f64f",
+    "source_sha256_pinned": true,
+    "status": "verified-unsigned",
+    "workflow_run_id": 31898548266,
+    "workflow_source_commit": "c3321550fd8906ca61f112ede1c87d8b7f8c56e1"
   }
 }

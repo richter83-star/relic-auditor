@@ -1,4 +1,4 @@
-# Relic Auditor 0.11.0 local validation
+# Relic Auditor 0.11.0 release-candidate validation
 
 Validation date: 2026-08-15
 
@@ -16,15 +16,27 @@ Validation date: 2026-08-15
 - The wheel and source distribution built successfully.
 - The frozen source ZIP reproduced byte-for-byte on a second build.
 
-## Environment-specific gate still required
+## Windows workflow
 
 The Linux runner does not provide the `libEGL.so.1` system library required to
 import PySide6 QtGui, so GUI execution was not falsely reported as passed.
-The frozen archive includes all GUI suites, including the new five-step
-supervisor and unprovisioned-license tests. The Windows installer workflow must
-run the complete suite, build both executables, run clean-install/in-place-
-upgrade/uninstall checks, and upload the workflow artifact before this RC can
-be considered Windows-verified.
+GitHub Actions run `31898548266` subsequently verified the frozen source hash,
+ran the complete Windows suite, built both executables, passed clean-install,
+repeat-install, CLI/GUI smoke, and uninstall checks, and uploaded the installer
+artifact from commit `c3321550fd8906ca61f112ede1c87d8b7f8c56e1`.
+
+Verified Windows installer:
+
+- File: `Relic-Auditor-Setup-0.11.0-x64.exe`
+- Size: `74,195,364` bytes
+- SHA-256: `c0016dbe82370ce8b34e3362c95283a84d32653ea5afd0073ab2f004a414f64f`
+- Authenticode: `NotSigned`
+- Workflow artifact: `9250519145`
+- Artifact ZIP SHA-256: `5568a5ee47f4ff8a6d91e68b2e15bd78307b7139647d1c19d80185d94a66ee40`
+
+The unsigned installer is verified for manual RC testing. The secure in-app
+updater correctly refuses automatic installation until an Authenticode-signed
+installer and matching stable update manifest are provisioned.
 
 ## Artifact identifiers
 
