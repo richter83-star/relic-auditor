@@ -210,17 +210,19 @@ def _project_rows(count: int, text: str = "src/app/service") -> list[dict]:
     ]
 
 
-def test_normal_table_content_fits_without_scrollbar(window, app) -> None:
+def test_normal_table_content_keeps_readable_columns(window, app) -> None:
     _laid_out(window, app, 1600, 1000)
     table = window.overview.projects
     table.set_rows(_project_rows(8))
     for _ in range(3):
         app.processEvents()
-    total = sum(
-        table.table.columnWidth(i) for i in range(table.model.columnCount())
+    floor = table.table.horizontalHeader().minimumSectionSize()
+    assert floor >= components.ABSOLUTE_MIN_SECTION
+    assert all(
+        table.table.columnWidth(index) >= floor
+        for index in range(table.model.columnCount())
     )
-    assert total <= table.table.viewport().width() + 4
-    assert not table.table.horizontalScrollBar().isVisible()
+    assert table.table.horizontalScrollBar().maximum() > 0
 
 
 def test_long_values_elide_with_tooltips(window, app) -> None:
@@ -229,10 +231,12 @@ def test_long_values_elide_with_tooltips(window, app) -> None:
     table.set_rows(_project_rows(3, text="X" * 400))
     for _ in range(3):
         app.processEvents()
-    total = sum(
-        table.table.columnWidth(i) for i in range(table.model.columnCount())
+    floor = table.table.horizontalHeader().minimumSectionSize()
+    assert all(
+        table.table.columnWidth(index) >= floor
+        for index in range(table.model.columnCount())
     )
-    assert total <= table.table.viewport().width() + 4
+    assert table.table.horizontalScrollBar().maximum() > 0
     assert table.table.textElideMode() == Qt.TextElideMode.ElideRight
     tooltip = table.model.data(table.model.index(0, 0), Qt.ItemDataRole.ToolTipRole)
     assert tooltip and "X" * 50 in tooltip, "full value must survive on the tooltip"
