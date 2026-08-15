@@ -17,13 +17,31 @@ Validation date: 2026-08-15
 - The sdist was normalized to sorted entries, fixed timestamps and ownership,
   and a deterministic gzip header; two independent outputs matched.
 
-## Not runnable in this Linux environment
+## Windows workflow
 
 The installed PySide6 build cannot import QtGui because `libEGL.so.1` is not
 available. Four GUI suites were therefore excluded rather than falsely
-reported as passed. The Windows workflow must run the complete source and
-frozen-source suites, both GUI/CLI smoke tests, clean install, in-place upgrade,
-stale-runtime cleanup, configuration preservation, PATH cleanup, and uninstall.
+reported as passed locally.
+
+GitHub Actions run `31901610921` subsequently verified the frozen source hash,
+ran the complete Windows suite without exclusions, built both executables, and
+passed bundled CLI/GUI smoke, clean install, in-place upgrade, stale-runtime
+cleanup, configuration preservation, PATH cleanup, and uninstall checks from
+commit `cfe1f0c0f545d0ecdc74a5a97b53b772292054cd`.
+
+Verified Windows installer:
+
+- File: `Relic-Auditor-Setup-0.12.0-x64.exe`
+- Size: `74,225,494` bytes
+- SHA-256: `5d5c8747eff13a1f0360152f0c9e2faeb2691cacc322dc37bb0f8b19a6870229`
+- Authenticode: `NotSigned`
+- Workflow artifact: `9251297173`
+- Artifact ZIP size: `74,229,717` bytes
+- Artifact ZIP SHA-256: `20a6ec4b42aa28a427bdc8de7f556641e77ad16a5c4f0da57e813ae24c488bf4`
+
+The unsigned installer is verified for manual RC testing. The secure in-app
+updater correctly refuses automatic installation until an Authenticode-signed
+installer and matching signed stable update manifest are provisioned.
 
 ## Artifact identifiers
 
@@ -33,7 +51,7 @@ stale-runtime cleanup, configuration preservation, PATH cleanup, and uninstall.
 
 ## External gates
 
-- Windows workflow: not run for this local RC.
+- Windows workflow: passed for the published branch RC.
 - Authenticode certificate: not provisioned.
 - Update and license public keys/services: not provisioned.
 - Permanent stable-manifest and installer hosting: not provisioned.
