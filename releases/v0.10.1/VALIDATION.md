@@ -20,10 +20,10 @@ pass in the hash-pinned `windows-latest` workflow before this installer is
 called verified.
 
 Frozen source SHA-256:
-`d0e67e54a7315d5c2dd89746353868d5da10f37275a7f8e109554d99abca34e0`.
+`46be88a88accea81885b40fc0618fd186b1b6be08640e1d8944a195874e6003a`.
 
 Wheel SHA-256:
-`a348d873235fa37e7b8e55ce77ed643bd47a8f58d68be7af5504b2a5bebe24a1`.
+`8b7652242cc6b89b5ad0c586e74ffd4bc36bd32038018b4bf184b6ac90a794fe`.
 
 Sdist SHA-256:
-`29a51e2bb2215368a332094ef3bf25edef8bf4ec1b81053ba76eeb55f58717df`.
+`c83a9da4e5e5b94077bc6444f1b2c9ab9578c845a5e57ad19a69157320b3a64c`.

@@ -8,7 +8,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 WINDOWS = ROOT / "installer" / "windows"
 SOURCE = ROOT / "releases" / "relic-auditor-0.10.1.zip"
-EXPECTED_SOURCE_SHA256 = "d0e67e54a7315d5c2dd89746353868d5da10f37275a7f8e109554d99abca34e0"
+EXPECTED_SOURCE_SHA256 = "46be88a88accea81885b40fc0618fd186b1b6be08640e1d8944a195874e6003a"
 
 
 def test_frozen_source_is_exact_release() -> None:

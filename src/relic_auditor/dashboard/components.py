@@ -973,12 +973,31 @@ def fit_table_columns(table: QTableView, column_count: int) -> None:
     )
 
     maximum_short = base_min * 3
-    for index in range(column_count):
-        if index == narrative:
-            continue
-        table.setColumnWidth(
-            index, max(base_min, min(table.columnWidth(index), maximum_short))
-        )
+    short_columns = [index for index in range(column_count) if index != narrative]
+    desired = {
+        index: max(base_min, min(table.columnWidth(index), maximum_short))
+        for index in short_columns
+    }
+    viewport_width = max(0, table.viewport().width())
+    minimum_total = base_min * column_count
+    if viewport_width >= minimum_total:
+        # Preserve the readable floor, but share only the space that remains
+        # after reserving one floor-width for the narrative column. This keeps
+        # ordinary records inside a normal viewport without reviving the old
+        # 44-pixel squeeze.
+        extra_budget = viewport_width - minimum_total
+        desired_extra = sum(width - base_min for width in desired.values())
+        scale = min(1.0, extra_budget / desired_extra) if desired_extra else 1.0
+        desired = {
+            index: base_min + int((width - base_min) * scale)
+            for index, width in desired.items()
+        }
+    else:
+        # The readable minima do not fit. Use an honest horizontal scrollbar
+        # instead of compressing any field below the floor.
+        desired = {index: base_min for index in short_columns}
+    for index, width in desired.items():
+        table.setColumnWidth(index, width)
     header.setSectionResizeMode(narrative, QHeaderView.ResizeMode.Stretch)
 
 

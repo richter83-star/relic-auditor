@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$SourceArchive = "",
-    [string]$ExpectedSourceSha256 = "d0e67e54a7315d5c2dd89746353868d5da10f37275a7f8e109554d99abca34e0",
+    [string]$ExpectedSourceSha256 = "46be88a88accea81885b40fc0618fd186b1b6be08640e1d8944a195874e6003a",
     [string]$OutputDirectory = "",
     [string]$InnoSetupPath = "",
     [string]$SigningCertificate = "",

@@ -408,9 +408,13 @@ def test_table_columns_keep_readable_floor_and_stretch_narrative(window, app) ->
         table.table.columnWidth(index) >= floor
         for index in range(table.model.columnCount())
     )
-    warnings = table.model.columnCount() - 1
+    path_column = next(
+        index
+        for index, (_title, key) in enumerate(table.model.columns)
+        if key == "path"
+    )
     assert (
-        table.table.horizontalHeader().sectionResizeMode(warnings).name == "Stretch"
+        table.table.horizontalHeader().sectionResizeMode(path_column).name == "Stretch"
     )
 
 
