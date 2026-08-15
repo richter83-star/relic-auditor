@@ -998,6 +998,15 @@ def fit_table_columns(table: QTableView, column_count: int) -> None:
         desired = {index: base_min for index in short_columns}
     for index, width in desired.items():
         table.setColumnWidth(index, width)
+    narrative_width = (
+        max(base_min, viewport_width - sum(desired.values()))
+        if viewport_width >= minimum_total
+        else base_min
+    )
+    # On Windows, changing a content-sized section directly to Stretch can
+    # preserve its old width until a later layout pass. Seed the intended
+    # remainder first so the current frame is correct as well.
+    table.setColumnWidth(narrative, narrative_width)
     header.setSectionResizeMode(narrative, QHeaderView.ResizeMode.Stretch)
 
 
