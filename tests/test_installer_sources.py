@@ -45,6 +45,8 @@ def test_build_is_pinned_and_outputs_both_frontends() -> None:
 
 def test_clean_install_and_uninstall_are_release_gates() -> None:
     build = (WINDOWS / "build-installer.ps1").read_text(encoding="utf-8")
+    assert "version = \"0\\.10\\.1\"" in build
+    assert "version = \"0\\.10\\.0\"" not in build
     for required in (
         "Frozen source hash mismatch",
         "$env:TEMP = $TestTempRoot",
