@@ -20,6 +20,7 @@ class SessionState(str, Enum):
     PLANNED = "planned"
     WAITING_APPROVAL = "waiting_approval"
     RUNNING = "running"
+    CANCELLING = "cancelling"
     PAUSED = "paused"
     CANCELLED = "cancelled"
     FAILED = "failed"
@@ -248,6 +249,7 @@ class SupervisorSession:
     queued_actions: list[str] = field(default_factory=list)
     completed_actions: list[str] = field(default_factory=list)
     failed_actions: list[str] = field(default_factory=list)
+    cancelled_actions: list[str] = field(default_factory=list)
     created_at: str = ""
 
     @property
@@ -274,5 +276,6 @@ class SupervisorSession:
             "queued_actions": list(self.queued_actions),
             "completed_actions": list(self.completed_actions),
             "failed_actions": list(self.failed_actions),
+            "cancelled_actions": list(self.cancelled_actions),
             "created_at": self.created_at,
         }

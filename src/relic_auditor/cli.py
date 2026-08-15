@@ -48,6 +48,7 @@ from .licensing import (
     deactivate_license,
     installation_id,
     load_cached_entitlement,
+    refresh_license,
 )
 from .supervisor import (
     ActionProposal,
@@ -288,6 +289,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--key-stdin",
         action="store_true",
         help="read the license key from standard input instead of a hidden prompt",
+    )
+    license_actions.add_parser(
+        "refresh", help="refresh the cached signed entitlement and offline window"
     )
     license_deactivate = license_actions.add_parser(
         "deactivate", help="remove the cached entitlement from this installation"
@@ -803,6 +807,19 @@ def _handle_license_command(
                 return 2
             deactivate_license(store=store)
             print("Relic license removed. This installation now defaults to Free.")
+            return 0
+        if args.license_action == "refresh":
+            kwargs = {
+                "app_version": __version__,
+                "public_keys": public_keys,
+                "store": store,
+                "device_id": device_id or installation_id(),
+            }
+            if opener is not None:
+                kwargs["opener"] = opener
+            refreshed = refresh_license(**kwargs)
+            print(f"Relic {refreshed.tier.value.title()} entitlement refreshed.")
+            print(f"Offline entitlement valid until: {refreshed.valid_until}")
             return 0
         key = (
             sys.stdin.readline().strip()

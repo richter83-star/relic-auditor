@@ -471,9 +471,8 @@ class ProviderStatusCard(RelicPanel):
     def set_runtime_status(self, status: str, label: str, message: str) -> None:
         """Set the result of a real provider request.
 
-        This deliberately overrides the setup badge. A later setup check may
-        return the card to ``CONFIGURED``, but authentication alone can never
-        overwrite a visible request failure with ``READY``.
+        This deliberately overrides the setup badge. Runtime truth is persisted
+        by the window, so a later setup check cannot erase a failed request.
         """
 
         self.badge.set_status(status, label)
@@ -782,7 +781,7 @@ class FindingsTable(QWidget):
 
         # Rows sized from the font, so text is never vertically cropped.
         row_height = control_height(
-            QFontMetrics(self.table.font()), padding=SPACING.md
+            QFontMetrics(self.table.font()), padding=SPACING.lg
         )
         self.table.verticalHeader().setDefaultSectionSize(row_height)
 
@@ -807,12 +806,20 @@ class FindingsTable(QWidget):
             control_height(QFontMetrics(self.details.font()), lines=6, padding=SPACING.sm)
         )
 
+        self.details_hint = QLabel(
+            "Select a row to read its complete, untruncated record below. "
+            "Scroll sideways for additional columns."
+        )
+        self.details_hint.setObjectName("mutedLabel")
+        self.details_hint.setWordWrap(True)
+
         self.splitter = QSplitter(Qt.Orientation.Vertical)
         self.splitter.setChildrenCollapsible(False)
         self.splitter.addWidget(table_stack)
         self.splitter.addWidget(self.details)
         self.splitter.setStretchFactor(0, 4)
         self.splitter.setStretchFactor(1, 2)
+        layout.addWidget(self.details_hint)
         layout.addWidget(self.splitter, 1)
         self._show_empty(True)
 
@@ -914,7 +921,7 @@ class ElidedLabel(QLabel):
 
 #: Hard floor for a column. Technical data is allowed to scroll horizontally
 #: rather than compress below this point.
-ABSOLUTE_MIN_SECTION = 72
+ABSOLUTE_MIN_SECTION = 96
 
 #: Where a table remembers its unshrunken column floor, so repeated fits at
 #: narrow widths cannot permanently ratchet it down.

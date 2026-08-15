@@ -9,6 +9,7 @@ declared SHA-256 digest, and the pinned Dracanus AI Authenticode publisher.
 from __future__ import annotations
 
 import hashlib
+import base64
 import json
 import os
 import re
@@ -18,12 +19,19 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from functools import total_ordering
 from pathlib import Path
-from typing import Any, BinaryIO, Callable
+from typing import Any, BinaryIO, Callable, Mapping
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 
-MANIFEST_SCHEMA_VERSION = 1
+from .build_packs.canonical import canonical_bytes
+from .trust_roots import PRODUCTION_UPDATE_PUBLIC_KEYS
+
+
+MANIFEST_SCHEMA_VERSION = 2
+LEGACY_MANIFEST_SCHEMA_VERSION = 1
 DEFAULT_UPDATE_CHANNEL = "stable"
 DEFAULT_UPDATE_MANIFEST_URL = (
     "https://relic-auditor.briandrichter.chatgpt.site/downloads/stable.json"
@@ -134,6 +142,9 @@ class UpdateManifest:
     release_notes: tuple[str, ...]
     release_notes_url: str | None
     installer: InstallerAsset
+    key_id: str | None = None
+    signature: str | None = None
+    signature_verified: bool = False
 
     def is_newer_than(self, current_version: str | ReleaseVersion) -> bool:
         current = (
@@ -185,7 +196,42 @@ def _published_at(value: object) -> datetime:
     return parsed.astimezone(UTC)
 
 
-def parse_update_manifest(payload: bytes | str | dict[str, Any]) -> UpdateManifest:
+def _signature_bytes(value: str) -> bytes:
+    try:
+        return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+    except (TypeError, ValueError) as exc:
+        raise UpdateManifestError("Update manifest signature encoding is invalid") from exc
+
+
+def _verify_manifest_signature(
+    decoded: dict[str, Any], public_keys: Mapping[str, bytes]
+) -> tuple[str, str]:
+    if int(decoded.get("schema_version", 0)) != MANIFEST_SCHEMA_VERSION:
+        raise UpdateManifestError("Unsigned legacy update manifests are not trusted")
+    key_id = str(decoded.get("key_id") or "").strip()
+    signature = str(decoded.get("signature") or "").strip()
+    if not key_id or len(key_id) > 100 or not signature:
+        raise UpdateManifestError("Update manifest signature metadata is missing")
+    key = public_keys.get(key_id)
+    if key is None:
+        raise UpdateManifestError("Update manifest signing key is not trusted")
+    signed = dict(decoded)
+    signed.pop("signature", None)
+    try:
+        Ed25519PublicKey.from_public_bytes(key).verify(
+            _signature_bytes(signature), canonical_bytes(signed)
+        )
+    except (ValueError, InvalidSignature) as exc:
+        raise UpdateManifestError("Update manifest signature is invalid") from exc
+    return key_id, signature
+
+
+def parse_update_manifest(
+    payload: bytes | str | dict[str, Any],
+    *,
+    public_keys: Mapping[str, bytes] | None = None,
+    require_signature: bool = False,
+) -> UpdateManifest:
     """Parse and strictly validate a stable-channel update manifest."""
 
     if isinstance(payload, (bytes, str)):
@@ -202,8 +248,34 @@ def parse_update_manifest(payload: bytes | str | dict[str, Any]) -> UpdateManife
         schema_version = int(decoded.get("schema_version"))
     except (TypeError, ValueError) as exc:
         raise UpdateManifestError("Unsupported update manifest schema") from exc
-    if schema_version != MANIFEST_SCHEMA_VERSION:
+    if schema_version not in {LEGACY_MANIFEST_SCHEMA_VERSION, MANIFEST_SCHEMA_VERSION}:
         raise UpdateManifestError("Unsupported update manifest schema")
+    signature_verified = False
+    key_id: str | None = None
+    signature: str | None = None
+    if schema_version == MANIFEST_SCHEMA_VERSION:
+        required = {
+            "schema_version",
+            "key_id",
+            "channel",
+            "version",
+            "published_at",
+            "release_notes",
+            "installer",
+            "signature",
+        }
+        allowed = required | {"release_notes_url"}
+        if not required <= set(decoded) or not set(decoded) <= allowed:
+            raise UpdateManifestError(
+                "Signed update manifest contains missing or unknown fields"
+            )
+        key_id = str(decoded.get("key_id") or "").strip() or None
+        signature = str(decoded.get("signature") or "").strip() or None
+    if require_signature:
+        if not public_keys:
+            raise UpdateManifestError("Signed update verification is not provisioned in this build")
+        key_id, signature = _verify_manifest_signature(decoded, public_keys)
+        signature_verified = True
 
     channel = str(decoded.get("channel") or "").strip().lower()
     if channel != DEFAULT_UPDATE_CHANNEL:
@@ -232,6 +304,13 @@ def parse_update_manifest(payload: bytes | str | dict[str, Any]) -> UpdateManife
     installer_value = decoded.get("installer")
     if not isinstance(installer_value, dict):
         raise UpdateManifestError("installer must be a JSON object")
+    if schema_version == MANIFEST_SCHEMA_VERSION and set(installer_value) != {
+        "filename",
+        "url",
+        "sha256",
+        "size",
+    }:
+        raise UpdateManifestError("Signed installer contains missing or unknown fields")
     filename = str(installer_value.get("filename") or "").strip()
     if (
         not filename
@@ -259,6 +338,9 @@ def parse_update_manifest(payload: bytes | str | dict[str, Any]) -> UpdateManife
         release_notes=tuple(notes),
         release_notes_url=notes_url,
         installer=InstallerAsset(filename, installer_url, sha256, size),
+        key_id=key_id,
+        signature=signature,
+        signature_verified=signature_verified,
     )
 
 
@@ -267,6 +349,7 @@ def fetch_update_manifest(
     *,
     timeout: float = 8.0,
     opener: Callable[..., Any] = urlopen,
+    public_keys: Mapping[str, bytes] = PRODUCTION_UPDATE_PUBLIC_KEYS,
 ) -> UpdateManifest:
     """Fetch a bounded HTTPS manifest and validate any redirect target."""
 
@@ -296,7 +379,11 @@ def fetch_update_manifest(
         raise UpdateManifestError(f"Could not reach the update service: {exc}") from exc
     if len(data) > MAX_MANIFEST_BYTES:
         raise UpdateManifestError("Update manifest is too large")
-    return parse_update_manifest(data)
+    return parse_update_manifest(
+        data,
+        public_keys=public_keys,
+        require_signature=True,
+    )
 
 
 def sha256_file(path: Path) -> str:

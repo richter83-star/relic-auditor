@@ -26,6 +26,7 @@ from ..product_discovery.entitlements import Entitlement
 from ..supervisor import (
     ActionProposal,
     Capability,
+    ExecutionPolicy,
     SupervisorError,
     SupervisorService,
     SupervisorSession,
@@ -245,12 +246,16 @@ class AssistedBuildDialog(QDialog):
         self.run_badge = StatusBadge("idle", "WAITING")
         self.run_button = PrimaryButton("Run approved builder action")
         self.run_button.clicked.connect(self.run_action)
+        self.cancel_button = SecondaryButton("Cancel active builder")
+        self.cancel_button.clicked.connect(self.cancel_execution)
+        self.cancel_button.setEnabled(False)
         self.open_workspace_button = SecondaryButton("Open managed workspace")
         self.open_workspace_button.clicked.connect(self.open_workspace)
         self.finalize_button = SecondaryButton("Mark candidate ready")
         self.finalize_button.clicked.connect(self.finalize_candidate)
         self.finalize_button.setEnabled(False)
         secondary_row = QHBoxLayout()
+        secondary_row.addWidget(self.cancel_button)
         secondary_row.addWidget(self.open_workspace_button)
         secondary_row.addWidget(self.finalize_button)
         secondary_row.addStretch(1)
@@ -270,16 +275,25 @@ class AssistedBuildDialog(QDialog):
         provider = str(self.builder_combo.currentData())
         executable = "codex" if provider == "codex" else "claude"
         found = shutil.which(executable)
-        if found:
+        action = codex_builder_action() if provider == "codex" else claude_builder_action()
+        try:
+            isolation = ExecutionPolicy.production().require(action)
+            supported = True
+        except SupervisorError as exc:
+            isolation = None
+            supported = False
+            refusal = str(exc).removeprefix("production execution refused: ")
+        if found and supported:
             self.builder_status.set_status("ready", "CLI FOUND")
-            qualifier = (
-                "Codex will run ephemerally in its workspace-write sandbox."
-                if provider == "codex"
-                else "Claude Code will run with file tools only—no Bash or MCP. "
-                "Commercial distribution using Claude subscription login requires separate Anthropic approval."
-            )
             self.builder_message.setText(
-                f"Executable: {found}\n{qualifier} Signed-in access is verified only when the approved action runs."
+                f"Executable: {found}\n{isolation.reason} Signed-in access is verified "
+                "only when the approved action runs."
+            )
+        elif found:
+            self.builder_status.set_status("blocked", "PREVIEW BLOCKED")
+            self.builder_message.setText(
+                f"Executable: {found}\n{refusal} Choose Codex for the v0.12 production "
+                "path. Claude remains visible so this limitation is explicit."
             )
         else:
             self.builder_status.set_status("failed", "CLI NOT FOUND")
@@ -287,7 +301,7 @@ class AssistedBuildDialog(QDialog):
                 f"{executable} was not found on PATH. Install and sign in to the official CLI, then reopen this flow."
             )
         if self.stack.currentIndex() == 2:
-            self.next_button.setEnabled(bool(found))
+            self.next_button.setEnabled(bool(found) and supported)
 
     def _create_session(self) -> None:
         if self.session is not None:
@@ -307,6 +321,7 @@ class AssistedBuildDialog(QDialog):
             if provider == "codex"
             else claude_builder_action()
         )
+        isolation = self.service.execution_policy.require(self.action)
         self.service.plan(self.session, _SingleActionAdapter(self.action, provider))
         argv = self.action.parameters.get("argv", [])
         prompt = str(self.action.parameters.get("stdin_text", ""))
@@ -314,6 +329,7 @@ class AssistedBuildDialog(QDialog):
             f"Action: {self.action.summary}\n"
             f"Immutable ID: {self.action.action_id}\n"
             f"Risk: {self.action.risk.upper()}\n"
+            f"Execution boundary: {isolation.boundary.value} — {isolation.reason}\n"
             f"Exact command: {json.dumps(argv, ensure_ascii=False)}\n"
             f"Instruction SHA-256: {hashlib.sha256(prompt.encode('utf-8')).hexdigest()}"
         )
@@ -395,7 +411,17 @@ class AssistedBuildDialog(QDialog):
         enabled = self._execution_thread is None
         if index == 2:
             executable = "codex" if self.builder_combo.currentData() == "codex" else "claude"
-            enabled = enabled and shutil.which(executable) is not None
+            action = (
+                codex_builder_action()
+                if self.builder_combo.currentData() == "codex"
+                else claude_builder_action()
+            )
+            try:
+                self.service.execution_policy.require(action)
+                supported = True
+            except SupervisorError:
+                supported = False
+            enabled = enabled and shutil.which(executable) is not None and supported
         if index == 3:
             enabled = enabled and bool(self._approval_checks) and all(
                 item.isChecked() for item in self._approval_checks
@@ -408,6 +434,7 @@ class AssistedBuildDialog(QDialog):
             return
         self.run_badge.set_status("running", "BUILDER RUNNING")
         self.run_button.setEnabled(False)
+        self.cancel_button.setEnabled(True)
         self.next_button.setEnabled(False)
         self.close_button.setEnabled(False)
         self.review_output.setPlainText(
@@ -430,6 +457,22 @@ class AssistedBuildDialog(QDialog):
         self._execution_worker = worker
         thread.start()
 
+    @Slot()
+    def cancel_execution(self) -> None:
+        if self._execution_thread is None or self.session is None:
+            return
+        try:
+            self.service.cancel(self.session)
+        except SupervisorError as exc:
+            QMessageBox.warning(self, "Cancel active builder", str(exc))
+            return
+        self.cancel_button.setEnabled(False)
+        self.run_badge.set_status("warning", "CANCELLING — RESTORING CHECKPOINT")
+        self.review_output.appendPlainText(
+            "\nCancellation requested. Relic is terminating the builder process tree "
+            "and restoring the pre-action checkpoint."
+        )
+
     @Slot(object)
     def _execution_complete(self, result: dict[str, object]) -> None:
         if self.session is None:
@@ -440,13 +483,23 @@ class AssistedBuildDialog(QDialog):
             json.dumps({"result": result, "workspace_diff": changes}, indent=2)
         )
         self.finalize_button.setEnabled(True)
+        self.cancel_button.setEnabled(False)
 
     @Slot(str)
     def _execution_failed(self, message: str) -> None:
-        self.run_badge.set_status("failed", "ACTION FAILED")
+        cancelled = self.session is not None and self.session.state.value == "cancelled"
+        self.run_badge.set_status(
+            "warning" if cancelled else "failed",
+            "CANCELLED — CHECKPOINT RESTORED" if cancelled else "ACTION FAILED",
+        )
+        self.cancel_button.setEnabled(False)
         self.review_output.setPlainText(
             message
-            + "\n\nThe workspace remains local. Check the action log and checkpoint before deciding whether to resume."
+            + (
+                "\n\nThe builder process tree was terminated and the pre-action checkpoint was restored."
+                if cancelled
+                else "\n\nThe workspace remains local. Check the action log and checkpoint before deciding whether to resume."
+            )
         )
 
     @Slot()
@@ -454,6 +507,7 @@ class AssistedBuildDialog(QDialog):
         self._execution_thread = None
         self._execution_worker = None
         self.close_button.setEnabled(True)
+        self.cancel_button.setEnabled(False)
         self.next_button.setEnabled(True)
         self._sync()
 
@@ -480,7 +534,7 @@ class AssistedBuildDialog(QDialog):
             QMessageBox.information(
                 self,
                 "Builder still running",
-                "Wait for the bounded builder action to finish or time out before closing.",
+                "Use Cancel active builder, or wait for the bounded action to finish or time out.",
             )
             return
         super().reject()

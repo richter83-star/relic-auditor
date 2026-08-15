@@ -75,6 +75,8 @@ def process_action(
             "timeout_seconds": timeout_seconds,
             "stdin_text": stdin_text,
             "credential_env": list(credential_env),
+            "execution_boundary": "unisolated",
+            "provider": "native-process",
         },
         risk="high" if network or credential_env else "review",
     )
@@ -85,7 +87,13 @@ def dependency_action(argv: Sequence[str], *, summary: str, timeout_seconds: flo
         ActionOperation.INSTALL_DEPENDENCIES,
         summary,
         [Capability.PROCESS, Capability.DEPENDENCY_INSTALL, Capability.NETWORK],
-        {"argv": list(argv), "cwd": ".", "timeout_seconds": timeout_seconds},
+        {
+            "argv": list(argv),
+            "cwd": ".",
+            "timeout_seconds": timeout_seconds,
+            "execution_boundary": "unisolated",
+            "provider": "native-process",
+        },
         risk="high",
     )
 
@@ -95,7 +103,13 @@ def git_action(argv: Sequence[str], *, summary: str) -> ActionProposal:
         ActionOperation.GIT_COMMAND,
         summary,
         [Capability.PROCESS, Capability.GIT],
-        {"argv": list(argv), "cwd": ".", "timeout_seconds": 120.0},
+        {
+            "argv": list(argv),
+            "cwd": ".",
+            "timeout_seconds": 120.0,
+            "execution_boundary": "unisolated",
+            "provider": "native-process",
+        },
         risk="high",
     )
 
@@ -133,6 +147,7 @@ def codex_builder_action(*, model: str | None = None, prompt: str = BUILDER_PROM
             "credential_env": [],
             "provider": "codex-cli",
             "provider_sandbox": "workspace-write",
+            "execution_boundary": "provider_sandbox",
         },
         risk="high",
     )
@@ -186,6 +201,7 @@ def claude_builder_action(
             "credential_env": [],
             "provider": "claude-code-cli",
             "provider_tools": ["Read", "Glob", "Grep", "Write", "Edit"],
+            "execution_boundary": "restricted_provider",
         },
         risk="high",
     )

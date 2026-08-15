@@ -101,3 +101,22 @@ def test_unprovisioned_license_ui_is_honest_and_disabled() -> None:
     assert not dialog.deactivate_button.isEnabled()
     dialog.deleteLater()
     app.processEvents()
+
+
+def test_claude_builder_is_visible_but_blocked_in_production(tmp_path: Path) -> None:
+    app = _app()
+    pack = _exported_pack(tmp_path)
+    with patch(
+        "relic_auditor.dashboard.supervisor_dialog.shutil.which",
+        return_value="C:/tools/claude.exe",
+    ):
+        dialog = AssistedBuildDialog(PREMIUM, pack, tmp_path / "sessions")
+        dialog.stack.setCurrentIndex(2)
+        dialog.builder_combo.setCurrentIndex(1)
+        app.processEvents()
+        assert dialog.builder_status.text() == "PREVIEW BLOCKED"
+        assert "not an OS isolation boundary" in dialog.builder_message.text()
+        assert not dialog.next_button.isEnabled()
+        assert not dialog.cancel_button.isEnabled()
+        dialog.deleteLater()
+        app.processEvents()

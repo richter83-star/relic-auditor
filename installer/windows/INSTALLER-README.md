@@ -1,6 +1,6 @@
-# Relic Auditor 0.11.0 — Windows installer
+# Relic Auditor 0.12.0 — Windows installer
 
-`Relic-Auditor-Setup-0.11.0-x64.exe` installs the frozen Relic Auditor 0.11.0 release candidate for the current Windows user.
+`Relic-Auditor-Setup-0.12.0-x64.exe` installs the frozen Relic Auditor 0.12.0 release candidate for the current Windows user.
 
 ## What it installs
 
@@ -15,7 +15,7 @@ No separate Python installation and no manual PATH setup are required. The insta
 ## Safety and persistence
 
 - Installation is per-user by default and does not require administrator rights.
-- Installing over v0.10.0, v0.10.1, or v0.10.2 upgrades the same application in place;
+- Installing over v0.10.x or v0.11.0 upgrades the same application in place;
   the stable AppId, install directory, shortcuts, and uninstall entry are reused.
 - Managed PyInstaller runtime directories are refreshed during upgrade so stale
   dependencies do not accumulate.
@@ -33,7 +33,7 @@ No separate Python installation and no manual PATH setup are required. The insta
 From PowerShell in the download folder:
 
 ```powershell
-Get-FileHash ".\Relic-Auditor-Setup-0.11.0-x64.exe" -Algorithm SHA256
+Get-FileHash ".\Relic-Auditor-Setup-0.12.0-x64.exe" -Algorithm SHA256
 ```
 
 Compare the result with `SHA256SUMS.txt` from the same release.

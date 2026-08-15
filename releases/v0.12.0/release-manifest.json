@@ -1,0 +1,43 @@
+{
+  "architecture": "any-python; Windows x64 installer pending",
+  "artifacts": [
+    {
+      "bytes": 326615,
+      "file": "relic-auditor-0.12.0.zip",
+      "role": "frozen-source",
+      "sha256": "a5c0b6f90b18b6198a9c10af8c57b2fd54ee82054c1e3f16b6f4bf3bf22df732"
+    },
+    {
+      "bytes": 221080,
+      "file": "relic_auditor-0.12.0-py3-none-any.whl",
+      "role": "wheel",
+      "sha256": "8a6145f38d8349fea96e226da45c59b62223eee2e69bc12b4fd44b02dc30b398"
+    },
+    {
+      "bytes": 250069,
+      "file": "relic_auditor-0.12.0.tar.gz",
+      "role": "source-distribution",
+      "sha256": "1e05520e871941762258fec0c3710cdad498693886f3e5c434dfc168ddbeecc7"
+    }
+  ],
+  "github_release_created": false,
+  "licensing": {
+    "client": "activation-refresh-and-offline-verification-tested",
+    "production_activation": "not-provisioned",
+    "production_public_keys": 0
+  },
+  "product": "Relic Auditor",
+  "release_status": "local-rc-no-push-no-tag-no-release",
+  "tag_created": false,
+  "update_trust": {
+    "manifest_schema": 2,
+    "production_public_keys": 0,
+    "signature_required_for_fetch": true
+  },
+  "version": "0.12.0",
+  "windows_installer": {
+    "authenticode_required_for_in_app_install": true,
+    "source_sha256_pinned": true,
+    "status": "workflow-pending"
+  }
+}

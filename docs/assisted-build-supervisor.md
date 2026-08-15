@@ -1,6 +1,6 @@
 # Assisted Build Supervisor
 
-Relic Auditor v0.11.0 turns a v0.11-exported, checksum-verified Build Pack into a
+Relic Auditor v0.12.0 turns a checksum-verified Build Pack into a
 reviewable implementation candidate. It does not build inside the original
 scan target and it does not publish, deploy, create accounts, send messages, or
 make payments.
@@ -17,10 +17,10 @@ make payments.
 Nothing is pre-approved. Closing any wizard before the run leaves the original
 source unchanged and launches no builder.
 
-The v0.11 export manifest carries a one-way fingerprint of the original source
+The export manifest carries a one-way fingerprint of the original source
 root. The supervisor compares it with every parent of the requested sessions
 folder and rejects any workspace placed inside that source. Older exported
-packs must be re-exported by v0.11 so this boundary can be enforced; source
+older packs must be re-exported so this boundary can be enforced; source
 paths themselves are not written to the pack.
 
 ## Capability model
@@ -47,8 +47,9 @@ does not request danger-full-access. See the official
 [Codex non-interactive documentation](https://developers.openai.com/codex/noninteractive).
 
 The Claude Code profile removes Bash and MCP tools and requests safe mode,
-no session persistence, and file tools only. It is a developer preview, not a
-commercially cleared subscription integration. Anthropic's official
+no session persistence, and file tools only. v0.12 displays it as a blocked
+developer preview because those controls are not an operating-system isolation
+boundary and it is not a commercially cleared subscription integration. Anthropic's official
 [Agent SDK overview](https://platform.claude.com/docs/en/agent-sdk/overview)
 states that third-party developers may not offer Claude.ai login or rate limits
 without prior approval. Dracanus AI must obtain that approval or replace this
@@ -83,22 +84,21 @@ restored. Process time, total actions, network actions, and external actions
 have independent limits. Process output is bounded and secret-redacted before
 it enters the action log.
 
-Pause, resume, and cancel apply between actions. A process has a hard timeout;
-v0.11 does not promise interactive mid-process cancellation. A failed action
-never becomes a candidate automatically.
+Pause and resume apply between actions. Cancel also terminates an active child
+process tree, records the cancellation, and restores the pre-action checkpoint.
+A process still has a hard timeout, and a failed or cancelled action never
+becomes a candidate automatically.
 
 ## Operating-system boundary
 
-The v0.11 supervisor is an approval, accounting, and recovery boundary; it is
-not a new Windows user account, VM, container, or firewall. Relic's direct file
-operations are path-confined, and the Codex profile adds Codex's documented
-workspace-write sandbox. The Claude profile relies on Claude Code's safe mode,
-restricted built-in tool list, and default project boundary. The generic CLI
-process action is intended only for an operator-reviewed command.
+The v0.12 production policy allows Relic's path-confined direct writes and the
+exact Codex ephemeral `workspace-write` profile. It refuses altered Codex
+arguments, generic native processes, dependency/Git process actions, and the
+Claude preview before they start. Code-level injected runners remain available
+only to tests. This is still not a new Windows user account, VM, container, or
+firewall.
 
-A malicious native process running as the current user could ignore proxy
-variables or attempt writes outside the workspace before Relic can observe a
-workspace diff. Use a disposable VM or separately configured OS sandbox when
-the builder executable or reviewed action is not trusted. Capability approval
-records consent; it does not grant an untrusted binary less operating-system
-authority than the user account already has.
+A malicious provider binary could still exploit its own sandbox implementation.
+Use a disposable VM or separately configured OS sandbox when the provider
+executable is not trusted. Capability approval records consent; it does not
+replace operating-system containment.

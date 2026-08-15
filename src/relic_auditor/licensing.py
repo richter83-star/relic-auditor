@@ -22,6 +22,7 @@ from .product_discovery.entitlements import (
     FREE_ENTITLEMENT,
     ProductTier,
 )
+from .trust_roots import PRODUCTION_LICENSE_PUBLIC_KEYS
 
 
 LICENSE_SCHEMA = 1
@@ -29,13 +30,14 @@ MAX_LICENSE_RESPONSE_BYTES = 128 * 1024
 LICENSE_ISSUER = "Dracanus AI"
 LICENSE_SERVICE = "Relic Auditor"
 DEFAULT_ACTIVATION_URL = "https://licensing.dracanus.ai/v1/relic-auditor/activate"
+DEFAULT_REFRESH_URL = "https://licensing.dracanus.ai/v1/relic-auditor/refresh"
 KEYRING_SERVICE = "Relic Auditor License"
 KEYRING_ACCOUNT = "active-entitlement"
 
 # Release builds fail closed until the licensing backend is provisioned and its
 # KMS-held signing key's public half is pinned here. Private signing material is
 # never generated, stored, or distributed with the desktop application.
-PRODUCTION_PUBLIC_KEYS: dict[str, bytes] = {}
+PRODUCTION_PUBLIC_KEYS = PRODUCTION_LICENSE_PUBLIC_KEYS
 
 
 class LicenseError(RuntimeError):
@@ -383,6 +385,90 @@ def load_cached_entitlement(
         )
     except (LicenseError, json.JSONDecodeError, OSError):
         return FREE_ENTITLEMENT
+
+
+def refresh_license(
+    *,
+    app_version: str,
+    public_keys: Mapping[str, bytes] = PRODUCTION_PUBLIC_KEYS,
+    store: SecretStore | None = None,
+    device_id: str | None = None,
+    refresh_url: str = DEFAULT_REFRESH_URL,
+    opener: Callable[..., Any] = request.urlopen,
+    timeout_seconds: float = 20.0,
+) -> Entitlement:
+    """Exchange a cached signed token for a fresh, verified offline grant."""
+
+    if not public_keys:
+        raise LicenseActivationError("license refresh is not provisioned in this build")
+    active_store = store or KeyringLicenseStore()
+    encoded = active_store.get()
+    if not encoded:
+        raise LicenseActivationError("no cached signed entitlement is available to refresh")
+    try:
+        cached = json.loads(encoded)
+    except json.JSONDecodeError as exc:
+        raise LicenseActivationError("the cached entitlement is invalid") from exc
+    if not isinstance(cached, dict):
+        raise LicenseActivationError("the cached entitlement is invalid")
+    # Parsing rejects ambiguous or extended token shapes before any network use.
+    LicenseToken.parse(cached)
+    active_device = device_id or installation_id()
+    if not re.fullmatch(r"device_[0-9a-f]{32}", active_device):
+        raise LicenseActivationError("installation identifier is invalid")
+    parsed = urlparse(refresh_url)
+    if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password:
+        raise LicenseActivationError("license refresh URL must be credential-free HTTPS")
+    payload = canonical_bytes(
+        {
+            "schema_version": LICENSE_SCHEMA,
+            "token": cached,
+            "device_id": active_device,
+            "app_version": app_version,
+            "platform": platform.system().lower(),
+        }
+    )
+    req = request.Request(
+        refresh_url,
+        data=payload,
+        headers={"Content-Type": "application/json", "Accept": "application/json"},
+        method="POST",
+    )
+    try:
+        with opener(req, timeout=timeout_seconds) as response:
+            final = urlparse(response.geturl())
+            if (
+                final.scheme != "https"
+                or not final.netloc
+                or final.username
+                or final.password
+                or final.hostname != parsed.hostname
+                or (final.port or 443) != (parsed.port or 443)
+            ):
+                raise LicenseActivationError(
+                    "license refresh redirected outside the trusted HTTPS origin"
+                )
+            length = response.headers.get("Content-Length")
+            if length and int(length) > MAX_LICENSE_RESPONSE_BYTES:
+                raise LicenseActivationError("license refresh response is oversized")
+            raw = response.read(MAX_LICENSE_RESPONSE_BYTES + 1)
+    except LicenseActivationError:
+        raise
+    except Exception as exc:
+        raise LicenseActivationError("license refresh service is unavailable") from exc
+    if len(raw) > MAX_LICENSE_RESPONSE_BYTES:
+        raise LicenseActivationError("license refresh response is oversized")
+    try:
+        value = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise LicenseActivationError("license refresh returned invalid data") from exc
+    if not isinstance(value, dict) or not isinstance(value.get("token"), dict):
+        raise LicenseActivationError("license refresh returned no signed entitlement")
+    entitlement = verify_license_token(
+        value["token"], public_keys=public_keys, device_id=active_device
+    )
+    active_store.set(json.dumps(value["token"], separators=(",", ":"), sort_keys=True))
+    return entitlement
 
 
 def deactivate_license(*, store: SecretStore | None = None) -> None:

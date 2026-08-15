@@ -18,6 +18,7 @@ from relic_auditor.licensing import (
     LicenseVerificationError,
     activate_license,
     load_cached_entitlement,
+    refresh_license,
     verify_license_token,
 )
 from relic_auditor.product_discovery.entitlements import ProductTier
@@ -273,4 +274,49 @@ def test_activation_rejects_invalid_installation_identifier(signing) -> None:
             public_keys=keys,
             store=MemoryStore(),
             device_id="not-a-device",
+        )
+
+
+def test_refresh_exchanges_cached_token_and_verifies_before_storage(signing) -> None:
+    private, keys = signing
+    issued = datetime.now(UTC)
+    store = MemoryStore()
+    old = _token(private, now=issued, offline_hours=1)
+    fresh = _token(private, now=issued, offline_hours=48)
+    store.set(json.dumps(old))
+    observed = {}
+
+    def opener(req, **kwargs):
+        observed["body"] = json.loads(req.data.decode())
+        observed.update(kwargs)
+        return FakeResponse(json.dumps({"token": fresh}).encode())
+
+    entitlement = refresh_license(
+        app_version="0.12.0",
+        public_keys=keys,
+        store=store,
+        device_id=DEVICE,
+        opener=opener,
+    )
+    assert entitlement.tier == ProductTier.PREMIUM
+    assert entitlement.valid_until == fresh["claims"]["offline_until"]
+    assert observed["body"]["token"] == old
+    assert json.loads(store.value) == fresh
+
+
+def test_refresh_fails_closed_without_cache_or_production_keys(signing) -> None:
+    _, keys = signing
+    with pytest.raises(LicenseActivationError, match="no cached"):
+        refresh_license(
+            app_version="0.12.0",
+            public_keys=keys,
+            store=MemoryStore(),
+            device_id=DEVICE,
+        )
+    with pytest.raises(LicenseActivationError, match="not provisioned"):
+        refresh_license(
+            app_version="0.12.0",
+            public_keys={},
+            store=MemoryStore(),
+            device_id=DEVICE,
         )

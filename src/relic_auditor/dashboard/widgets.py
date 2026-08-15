@@ -178,7 +178,7 @@ class RecordTable(QWidget):
         header.setHighlightSections(False)
         self.table.setHorizontalScrollMode(QTableView.ScrollMode.ScrollPerPixel)
         self.table.verticalHeader().setDefaultSectionSize(
-            control_height(self.table.fontMetrics(), padding=SPACING.md)
+            control_height(self.table.fontMetrics(), padding=SPACING.lg)
         )
         # The table must not impose a large minimum width on the workspace.
         self.table.setSizePolicy(
@@ -193,6 +193,12 @@ class RecordTable(QWidget):
         self.details.setMinimumHeight(
             control_height(self.details.fontMetrics(), lines=6, padding=SPACING.sm)
         )
+        self.details_hint = QLabel(
+            "Select a row to read its complete, untruncated record below. "
+            "Scroll sideways for additional columns."
+        )
+        self.details_hint.setObjectName("mutedLabel")
+        self.details_hint.setWordWrap(True)
 
         # A bare table with no rows reads as a broken panel. Swap in a stated
         # reason instead of leaving an unexplained blank grid.
@@ -224,6 +230,7 @@ class RecordTable(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
         layout.addWidget(self.search)
+        layout.addWidget(self.details_hint)
         layout.addWidget(splitter)
 
         self.table.selectionModel().selectionChanged.connect(self._selection_changed)

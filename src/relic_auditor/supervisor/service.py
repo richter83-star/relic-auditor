@@ -4,8 +4,11 @@ import json
 import hashlib
 import os
 import re
+import signal
 import shutil
 import subprocess
+import tempfile
+import threading
 import time
 import uuid
 from dataclasses import dataclass
@@ -26,6 +29,7 @@ from ..product_discovery.entitlements import (
 from ..safety import redact_secrets
 from .adapters import BuildAdapter
 from .ledger import AppendOnlyLedger
+from .runtime import ExecutionPolicy, IsolationAssessment
 from .schemas import (
     ActionOperation,
     ActionProposal,
@@ -61,6 +65,10 @@ class ProcessResult:
 ProcessRunner = Callable[..., ProcessResult]
 
 
+class ProcessCancelledError(SupervisorError):
+    """An operator cancelled an active supervised process."""
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
@@ -79,24 +87,83 @@ def _default_process_runner(
     input_text: str,
     timeout: float,
     env: Mapping[str, str],
+    cancel_event: threading.Event,
 ) -> ProcessResult:
     creationflags = 0
+    popen_kwargs: dict[str, Any] = {}
     if os.name == "nt":
-        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-    completed = subprocess.run(  # noqa: S603 - exact reviewed argv, never a shell
-        list(argv),
-        cwd=cwd,
-        input=input_text,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=timeout,
-        env=dict(env),
-        shell=False,
-        close_fds=True,
-        creationflags=creationflags,
-    )
-    return ProcessResult(completed.returncode, completed.stdout or "", completed.stderr or "")
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(
+            subprocess, "CREATE_NEW_PROCESS_GROUP", 0
+        )
+    else:
+        popen_kwargs["start_new_session"] = True
+    with (
+        tempfile.TemporaryFile() as stdin_file,
+        tempfile.TemporaryFile() as stdout_file,
+        tempfile.TemporaryFile() as stderr_file,
+    ):
+        stdin_file.write(input_text.encode("utf-8"))
+        stdin_file.seek(0)
+        process = subprocess.Popen(  # noqa: S603 - exact reviewed argv, never a shell
+            list(argv),
+            cwd=cwd,
+            stdin=stdin_file,
+            stdout=stdout_file,
+            stderr=stderr_file,
+            env=dict(env),
+            shell=False,
+            close_fds=True,
+            creationflags=creationflags,
+            **popen_kwargs,
+        )
+        started = time.monotonic()
+        while process.poll() is None:
+            if cancel_event.wait(0.05):
+                _terminate_process_tree(process)
+                raise ProcessCancelledError(
+                    "approved process was cancelled; its process tree was terminated"
+                )
+            if time.monotonic() - started >= timeout:
+                _terminate_process_tree(process)
+                raise subprocess.TimeoutExpired(list(argv), timeout)
+        stdout_file.seek(0)
+        stderr_file.seek(0)
+        stdout = stdout_file.read().decode("utf-8", errors="replace")
+        stderr = stderr_file.read().decode("utf-8", errors="replace")
+        return ProcessResult(int(process.returncode or 0), stdout, stderr)
+
+
+def _terminate_process_tree(process: subprocess.Popen[bytes]) -> None:
+    """Terminate the whole child tree, then force-kill if it does not exit."""
+
+    if process.poll() is not None:
+        return
+    if os.name == "nt":
+        subprocess.run(  # noqa: S603 - fixed Windows system command and numeric PID
+            ["taskkill.exe", "/PID", str(process.pid), "/T", "/F"],
+            capture_output=True,
+            check=False,
+            shell=False,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
+    else:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except (ProcessLookupError, PermissionError):
+            process.terminate()
+    try:
+        process.wait(timeout=1.0)
+        return
+    except subprocess.TimeoutExpired:
+        pass
+    if os.name == "nt":
+        process.kill()
+    else:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            process.kill()
+    process.wait(timeout=2.0)
 
 
 class SupervisorService:
@@ -112,9 +179,18 @@ class SupervisorService:
         entitlement: Entitlement,
         *,
         process_runner: ProcessRunner | None = None,
+        execution_policy: ExecutionPolicy | None = None,
     ) -> None:
         self.entitlement = entitlement
+        self._uses_default_runner = process_runner is None
         self.process_runner = process_runner or _default_process_runner
+        self.execution_policy = execution_policy or (
+            ExecutionPolicy.production()
+            if self._uses_default_runner
+            else ExecutionPolicy.testing()
+        )
+        self._cancel_events: dict[str, threading.Event] = {}
+        self._running_actions: dict[str, str] = {}
 
     def create_session(
         self,
@@ -228,6 +304,7 @@ class SupervisorService:
             queued_actions=list(map(str, value.get("queued_actions", []))),
             completed_actions=list(map(str, value.get("completed_actions", []))),
             failed_actions=list(map(str, value.get("failed_actions", []))),
+            cancelled_actions=list(map(str, value.get("cancelled_actions", []))),
             created_at=str(value.get("created_at", "")),
         )
         if not session.workspace.is_dir() or not session.input.is_dir():
@@ -263,10 +340,16 @@ class SupervisorService:
             for item in entries
             if item.get("event") == "action_failed"
         ]
+        cancelled = [
+            str(item.get("details", {}).get("action_id"))
+            for item in entries
+            if item.get("event") == "action_cancelled"
+        ]
         if (
             queued != session.queued_actions
             or completed != session.completed_actions
             or failed != session.failed_actions
+            or cancelled != session.cancelled_actions
         ):
             raise SupervisorError("session action state does not match its ledger")
         return session
@@ -353,23 +436,44 @@ class SupervisorService:
                 + ", ".join(sorted(item.value for item in missing))
             )
         self._check_budget_before(session, action)
+        try:
+            isolation = self.execution_policy.require(action)
+        except SupervisorError as exc:
+            self._ledger(session).append(
+                "action_blocked",
+                {"action_id": action.action_id, "reason": str(exc)},
+            )
+            raise
         checkpoint = self.create_checkpoint(session, label=f"before-{action.action_id}")
+        cancel_event = threading.Event()
+        if action.operation != ActionOperation.WRITE_TEXT:
+            self._cancel_events[session.session_id] = cancel_event
+            self._running_actions[session.session_id] = action.action_id
         session.state = SessionState.RUNNING
         self._save(session)
         self._ledger(session).append(
             "action_started",
-            {"action_id": action.action_id, "checkpoint_id": checkpoint["checkpoint_id"]},
+            {
+                "action_id": action.action_id,
+                "checkpoint_id": checkpoint["checkpoint_id"],
+                "isolation": isolation.public(),
+            },
         )
         try:
             if action.operation == ActionOperation.WRITE_TEXT:
                 result = self._write_text(session, action)
             else:
-                result = self._run_process(session, action, checkpoint)
+                result = self._run_process(
+                    session, action, checkpoint, cancel_event, isolation
+                )
             session.usage.actions += 1
             session.completed_actions.append(action.action_id)
             session.state = (
                 SessionState.WAITING_APPROVAL
-                if set(session.queued_actions) - set(session.completed_actions) - set(session.failed_actions)
+                if set(session.queued_actions)
+                - set(session.completed_actions)
+                - set(session.failed_actions)
+                - set(session.cancelled_actions)
                 else SessionState.PAUSED
             )
             self._save(session)
@@ -382,6 +486,19 @@ class SupervisorService:
                 },
             )
             return result
+        except ProcessCancelledError:
+            if action.action_id not in session.cancelled_actions:
+                session.cancelled_actions.append(action.action_id)
+            session.state = SessionState.CANCELLED
+            self._save(session)
+            self._ledger(session).append(
+                "action_cancelled",
+                {
+                    "action_id": action.action_id,
+                    "checkpoint_id": checkpoint["checkpoint_id"],
+                },
+            )
+            raise
         except Exception as exc:
             if action.action_id not in session.failed_actions:
                 session.failed_actions.append(action.action_id)
@@ -392,6 +509,9 @@ class SupervisorService:
                 {"action_id": action.action_id, "error_type": type(exc).__name__},
             )
             raise
+        finally:
+            self._cancel_events.pop(session.session_id, None)
+            self._running_actions.pop(session.session_id, None)
 
     def create_checkpoint(self, session: SupervisorSession, *, label: str = "manual") -> dict[str, Any]:
         manifest = file_manifest(session.workspace)
@@ -429,12 +549,31 @@ class SupervisorService:
     def cancel(self, session: SupervisorSession) -> None:
         if session.state == SessionState.CANDIDATE_READY:
             raise SupervisorError("a completed candidate cannot be cancelled")
+        if session.state == SessionState.CANCELLING:
+            return
+        if session.state == SessionState.RUNNING:
+            event = self._cancel_events.get(session.session_id)
+            action_id = self._running_actions.get(session.session_id)
+            if event is None or action_id is None:
+                raise SupervisorError("the active process is not attached to this supervisor")
+            session.state = SessionState.CANCELLING
+            self._save(session)
+            self._ledger(session).append(
+                "session_cancel_requested", {"action_id": action_id}
+            )
+            event.set()
+            return
         session.state = SessionState.CANCELLED
         self._save(session)
         self._ledger(session).append("session_cancelled", {})
 
     def finalize_candidate(self, session: SupervisorSession) -> Path:
-        if session.state in {SessionState.CANCELLED, SessionState.FAILED, SessionState.RUNNING}:
+        if session.state in {
+            SessionState.CANCELLED,
+            SessionState.FAILED,
+            SessionState.RUNNING,
+            SessionState.CANCELLING,
+        }:
             raise SupervisorError("session is not eligible for candidate review")
         remaining = set(session.queued_actions) - set(session.completed_actions)
         if remaining:
@@ -450,6 +589,8 @@ class SupervisorService:
             "changes": changes,
             "usage": session.usage.public(),
             "ledger_head": ledger_status["head"],
+            "execution_policy": self.execution_policy.policy_name,
+            "cancelled_actions": list(session.cancelled_actions),
             "review_required": True,
             "published": False,
         }
@@ -485,7 +626,14 @@ class SupervisorService:
             "bytes": len(data),
         }
 
-    def _run_process(self, session: SupervisorSession, action: ActionProposal, checkpoint: Mapping[str, Any]) -> dict[str, Any]:
+    def _run_process(
+        self,
+        session: SupervisorSession,
+        action: ActionProposal,
+        checkpoint: Mapping[str, Any],
+        cancel_event: threading.Event,
+        isolation: IsolationAssessment,
+    ) -> dict[str, Any]:
         parameters = action.parameters
         argv = parameters.get("argv")
         if not isinstance(argv, list) or not argv or len(argv) > MAX_ARG_COUNT:
@@ -505,13 +653,22 @@ class SupervisorService:
         before = file_manifest(session.workspace)
         started = time.monotonic()
         try:
-            completed = self.process_runner(
-                argv,
-                cwd=str(cwd),
-                input_text=str(parameters.get("stdin_text", "")),
-                timeout=timeout,
-                env=env,
-            )
+            runner_arguments = {
+                "cwd": str(cwd),
+                "input_text": str(parameters.get("stdin_text", "")),
+                "timeout": timeout,
+                "env": env,
+            }
+            if self._uses_default_runner:
+                runner_arguments["cancel_event"] = cancel_event
+            completed = self.process_runner(argv, **runner_arguments)
+            if cancel_event.is_set():
+                raise ProcessCancelledError(
+                    "approved process was cancelled; checkpoint restored"
+                )
+        except ProcessCancelledError:
+            self._restore_checkpoint(session, str(checkpoint["checkpoint_id"]))
+            raise
         except subprocess.TimeoutExpired as exc:
             self._restore_checkpoint(session, str(checkpoint["checkpoint_id"]))
             raise SupervisorError(f"approved process timed out after {timeout:g} seconds") from exc
@@ -552,6 +709,7 @@ class SupervisorService:
             "stderr": stderr,
             "elapsed_seconds": round(elapsed, 6),
             "changed_paths": changed_paths,
+            "isolation": isolation.public(),
         }
         _atomic_json(session.control / "logs" / f"{action.action_id}.json", log)
         if completed.returncode != 0:
@@ -562,6 +720,7 @@ class SupervisorService:
             "returncode": completed.returncode,
             "elapsed_seconds": round(elapsed, 6),
             "changed_paths": changed_paths,
+            "isolation": isolation.public(),
             "log": f"control/logs/{action.action_id}.json",
         }
 
@@ -652,7 +811,12 @@ class SupervisorService:
 
     def _require_active(self, session: SupervisorSession) -> None:
         self.entitlement.require(ProductCapability.SUPERVISED_BUILD)
-        if session.state in {SessionState.CANCELLED, SessionState.CANDIDATE_READY, SessionState.RUNNING}:
+        if session.state in {
+            SessionState.CANCELLED,
+            SessionState.CANDIDATE_READY,
+            SessionState.RUNNING,
+            SessionState.CANCELLING,
+        }:
             raise SupervisorError(f"session is not editable while {session.state.value}")
 
     def _save(self, session: SupervisorSession) -> None:

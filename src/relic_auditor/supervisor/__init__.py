@@ -23,7 +23,13 @@ from .schemas import (
     SupervisorError,
     SupervisorSession,
 )
-from .service import ProcessResult, SupervisorService
+from .service import ProcessCancelledError, ProcessResult, SupervisorService
+from .runtime import (
+    ExecutionBoundary,
+    ExecutionPolicy,
+    IsolationAssessment,
+    assess_action_isolation,
+)
 
 __all__ = [
     "ActionOperation",
@@ -40,10 +46,15 @@ __all__ = [
     "SupervisorService",
     "SupervisorSession",
     "ProcessResult",
+    "ProcessCancelledError",
     "dependency_action",
     "claude_builder_action",
     "codex_builder_action",
     "git_action",
     "process_action",
     "write_text_action",
+    "ExecutionBoundary",
+    "ExecutionPolicy",
+    "IsolationAssessment",
+    "assess_action_isolation",
 ]

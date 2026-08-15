@@ -1,6 +1,6 @@
 # Signed plan licensing
 
-Relic Auditor v0.11.0 contains the client half of a commercial entitlement
+Relic Auditor v0.12.0 contains the client half of a commercial entitlement
 system. It fails closed to Free.
 
 ## Trust boundary
@@ -21,6 +21,11 @@ The activation request contains only:
 
 Source files, scan paths, reports, provider credentials, and Build Pack content
 are never sent to the licensing service.
+
+`relic license refresh` exchanges the cached signed token—not the original
+license key—for a newly signed offline window. The replacement is verified
+before it overwrites the credential-vault copy. Local deactivation deletes the
+cached token and returns the installation to Free.
 
 ## Plan matrix
 
@@ -45,7 +50,7 @@ provisioned. Before selling Premium, Dracanus AI must:
 1. create the activation service at the configured HTTPS endpoint;
 2. hold the Ed25519 private key in a managed KMS/HSM;
 3. pin only the public key and key ID in the desktop build;
-4. implement purchase, renewal, revocation, device reset, and support flows;
+4. implement purchase, refresh, renewal, revocation, device reset, and support flows;
 5. define privacy, refund, subscription, tax, and account-recovery policies;
 6. validate Windows Credential Manager behavior in the signed installer; and
 7. rotate keys through an overlap window without accepting unsigned tokens.

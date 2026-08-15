@@ -1,34 +1,33 @@
 # Build status
 
-Relic Auditor 0.10.2 is a local release candidate based on the verified
-v0.10.1 source archive.
+Relic Auditor 0.12.0 is a local production-foundation release candidate based
+on the verified v0.11.0 source and Windows workflow.
 
 ## Implemented
 
-- strict stable-channel update manifest and semantic version comparison
-- bounded HTTPS installer download with atomic finalization
-- exact size and SHA-256 verification
-- pinned Dracanus AI Authenticode verification and pre-launch recheck
-- visible manual update check and cadence-limited checks in installed builds
-- three-step download, verify, and install dialog
-- same-AppId in-place installer upgrade with managed runtime cleanup
-- clean-install, repeat-install, configuration-preservation, and uninstall gates
+- exact Codex sandbox-profile verification and fail-closed process policy
+- active process-tree cancellation with checkpoint restoration
+- separately pinned Ed25519 update and entitlement trust roots
+- signed update-manifest verification before download
+- signed entitlement refresh without storing the original license key
+- persistent provider runtime truth across setup checks and restarts
+- visible five-step product route and more readable evidence tables
 
 ## Local verification
 
-- updater unit tests pass
-- available non-GUI source suite passes
+- updater, licensing, supervisor, cancellation, and provider-health tests pass
+- all available non-GUI source tests pass
 - Python sources compile
-- deterministic source archive, wheel, and sdist can be generated
+- deterministic source archive, wheel, and sdist are regenerated below
 
 ## Remaining release gates
 
-- commit/push approval
 - complete GitHub Actions Windows source and frozen-source suites
 - bundled and installed GUI/CLI smoke tests
 - repeat-install and stale-runtime cleanup verification on Windows
-- permanent public update endpoint
-- trusted Dracanus AI code-signing certificate
+- provisioned update/licensing public keys and external services
+- permanent public update endpoint and trusted Dracanus AI code-signing certificate
 
-The updater will not launch an unsigned installer. Until signing and permanent
-hosting are configured, manual installation remains the internal-test path.
+The updater will not trust an unsigned manifest or launch an unsigned installer.
+Until signing, keys, and permanent hosting are configured, manual installation
+remains the internal-test path and licensing remains Free.

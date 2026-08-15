@@ -74,6 +74,7 @@ from ..llm.claude_code import (
     SUPPORTED_EFFORTS,
     ClaudeCodeError,
 )
+from ..llm.health import load_provider_health, save_provider_health
 from .components import (
     ElidedLabel,
     EmptyState,
@@ -481,6 +482,14 @@ class RelicWindow(QMainWindow):
         )
         self.workflow_step_badge = StatusBadge("primary", "STEP 1 OF 5")
         panel.add_header_widget(self.workflow_step_badge)
+        self.workflow_route = QLabel(
+            "1  Choose folder   →   2  Run audit   →   3  Wait   →   "
+            "4  Review answer   →   5  Export or build"
+        )
+        self.workflow_route.setObjectName("sectionLabel")
+        self.workflow_route.setWordWrap(True)
+        self.workflow_route.setAccessibleName("Complete five-step appraisal path")
+        panel.add_widget(self.workflow_route)
         self.workflow_step_title = QLabel("Choose a folder")
         self.workflow_step_title.setObjectName("panelTitle")
         self.workflow_step_title.setWordWrap(True)
@@ -1143,12 +1152,36 @@ class RelicWindow(QMainWindow):
         self.provider_card.set_status(status)
         self._provider_configured = bool(status.get("ready"))
         if status.get("ready"):
-            self.provider_badge.set_status("active", "CLAUDE: CONFIGURED")
-            self.provider_card.set_message(
-                "Claude Code is installed and the subscription session is signed in. "
-                "Operational status is confirmed only after a reasoning request succeeds.",
-                "active",
-            )
+            runtime = load_provider_health("claude-code")
+            if runtime.status in {"failed", "running"}:
+                interrupted = runtime.status == "running"
+                label = "INTERRUPTED" if interrupted else "LAST REQUEST FAILED"
+                message = (
+                    "The previous Claude request did not finish."
+                    if interrupted
+                    else runtime.message or "The previous Claude request failed."
+                )
+                self.provider_badge.set_status("failed", f"CLAUDE: {label}")
+                self.provider_card.set_runtime_status(
+                    "failed",
+                    label,
+                    f"{message} Setup is configured, but runtime is not operational.",
+                )
+            elif runtime.status == "operational":
+                self.provider_badge.set_status("ready", "CLAUDE: OPERATIONAL")
+                self.provider_card.set_runtime_status(
+                    "ready",
+                    "OPERATIONAL",
+                    "The last Claude advisory request completed successfully. "
+                    "Use Check Claude setup to revalidate configuration.",
+                )
+            else:
+                self.provider_badge.set_status("active", "CLAUDE: CONFIGURED")
+                self.provider_card.set_message(
+                    "Claude Code is installed and the subscription session is signed in. "
+                    "Operational status is confirmed only after a reasoning request succeeds.",
+                    "active",
+                )
         elif not status.get("executable_found"):
             self.provider_badge.set_status("idle", "PROVIDER: ABSENT")
             self.provider_card.set_message(
@@ -1282,6 +1315,12 @@ class RelicWindow(QMainWindow):
             status="running",
         )
         if self.use_llm.isChecked() and self._claude_max_selected():
+            try:
+                save_provider_health(
+                    "claude-code", "running", "Claude advisory request started."
+                )
+            except OSError:
+                pass
             self.provider_badge.set_status("running", "CLAUDE: RUNNING")
             self.provider_card.set_runtime_status(
                 "running",
@@ -1458,6 +1497,11 @@ class RelicWindow(QMainWindow):
                     f"Advisory reasoning unavailable: {error}. "
                     "Deterministic audit results and saved reports remain complete.",
                 )
+                if bundle.llm_reasoning.protocol == "claude-code":
+                    try:
+                        save_provider_health("claude-code", "failed", error)
+                    except OSError:
+                        pass
             elif bundle.llm_reasoning.status == "complete":
                 provider_name = (
                     "CLAUDE"
@@ -1472,6 +1516,15 @@ class RelicWindow(QMainWindow):
                     "OPERATIONAL",
                     "Claude advisory reasoning completed successfully for this audit.",
                 )
+                if bundle.llm_reasoning.protocol == "claude-code":
+                    try:
+                        save_provider_health(
+                            "claude-code",
+                            "operational",
+                            "Claude advisory reasoning completed successfully.",
+                        )
+                    except OSError:
+                        pass
         self.llm_reasoning.set_rows([{**item, "_raw": item} for item in reasoning_rows])
         self.files.set_rows(
             [

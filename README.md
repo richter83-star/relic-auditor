@@ -5,15 +5,15 @@ estates. It reads loose files, folders, and ZIP files, detects project types, ma
 finds byte-identical duplicates, and produces review candidates. It never imports,
 executes, installs, changes, or deletes scanned code.
 
-v0.11.0 adds the approval-gated Assisted Build Supervisor. After a Premium
-user reviews and exports a checksum-verified Build Pack, Relic creates a
-separate managed workspace, displays one immutable builder action, requires
-each capability to be approved, checkpoints before execution, and stops at an
-unpublished candidate with a complete diff. It also adds the fail-closed client
-for signed Free/Pro/Premium entitlements. Production activation is deliberately
-not provisioned in this RC, so ordinary installs remain Free until a real
-KMS-backed licensing service and pinned public key exist. See
-[docs/v0.11.0-release-notes.md](docs/v0.11.0-release-notes.md).
+v0.12.0 is the production-foundation release candidate. It enforces an exact
+Codex sandbox profile, blocks unisolated native and Claude preview builders,
+terminates an active builder process tree on cancellation, restores the
+pre-action checkpoint, verifies Ed25519-signed update manifests, refreshes
+signed offline entitlements, and persists real provider runtime failures. The
+desktop keeps the complete five-step path visible and gives evidence rows more
+room plus an explicit full-record inspector. Production update and licensing
+keys remain external provisioning gates, so ordinary installs still fail
+closed. See [docs/v0.12.0-release-notes.md](docs/v0.12.0-release-notes.md).
 
 v0.10.2 adds a fail-closed Windows update path. Installed builds check the
 stable channel at a bounded cadence, the header always provides a manual

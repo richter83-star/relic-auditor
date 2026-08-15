@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import hashlib
+import base64
 import io
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+
+from relic_auditor.build_packs.canonical import canonical_bytes
 
 from relic_auditor.updater import (
     AuthenticodeResult,
@@ -73,6 +78,26 @@ def manifest_payload(installer: bytes = b"verified installer") -> dict:
     }
 
 
+def signed_manifest_payload(
+    private: Ed25519PrivateKey, installer: bytes = b"verified installer"
+) -> dict:
+    payload = manifest_payload(installer)
+    payload["schema_version"] = 2
+    payload["key_id"] = "test-update-key"
+    signature = private.sign(canonical_bytes(payload))
+    payload["signature"] = base64.urlsafe_b64encode(signature).decode().rstrip("=")
+    return payload
+
+
+def update_signing() -> tuple[Ed25519PrivateKey, dict[str, bytes]]:
+    private = Ed25519PrivateKey.generate()
+    public = private.public_key().public_bytes(
+        encoding=serialization.Encoding.Raw,
+        format=serialization.PublicFormat.Raw,
+    )
+    return private, {"test-update-key": public}
+
+
 def test_release_version_orders_stable_and_prerelease() -> None:
     assert ReleaseVersion.parse("0.10.2") > ReleaseVersion.parse("0.10.1")
     assert ReleaseVersion.parse("0.10.2") > ReleaseVersion.parse("0.10.2-rc.1")
@@ -114,7 +139,8 @@ def test_manifest_rejects_unsafe_installer_values(field: str, value: object) -> 
 
 
 def test_fetch_manifest_is_bounded_and_validates_redirect() -> None:
-    encoded = json.dumps(manifest_payload()).encode()
+    private, keys = update_signing()
+    encoded = json.dumps(signed_manifest_payload(private)).encode()
     manifest = fetch_update_manifest(
         "https://example.test/stable.json",
         opener=lambda *_args, **_kwargs: FakeResponse(
@@ -122,6 +148,7 @@ def test_fetch_manifest_is_bounded_and_validates_redirect() -> None:
             url="https://cdn.example.test/stable.json",
             content_length=len(encoded),
         ),
+        public_keys=keys,
     )
     assert str(manifest.version) == "0.10.2"
     assert manifest.is_newer_than("0.10.1")
@@ -133,6 +160,28 @@ def test_fetch_manifest_is_bounded_and_validates_redirect() -> None:
             opener=lambda *_args, **_kwargs: FakeResponse(
                 encoded, url="http://redirect.example.test/stable.json"
             ),
+            public_keys=keys,
+        )
+
+
+def test_fetch_manifest_rejects_unsigned_unprovisioned_and_tampered_data() -> None:
+    unsigned = json.dumps(manifest_payload()).encode()
+    with pytest.raises(UpdateManifestError, match="not provisioned"):
+        fetch_update_manifest(
+            "https://example.test/stable.json",
+            opener=lambda *_a, **_k: FakeResponse(unsigned),
+            public_keys={},
+        )
+
+    private, keys = update_signing()
+    payload = signed_manifest_payload(private)
+    payload["version"] = "9.9.9"
+    encoded = json.dumps(payload).encode()
+    with pytest.raises(UpdateManifestError, match="signature is invalid"):
+        fetch_update_manifest(
+            "https://example.test/stable.json",
+            opener=lambda *_a, **_k: FakeResponse(encoded),
+            public_keys=keys,
         )
 
 

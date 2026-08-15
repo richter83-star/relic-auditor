@@ -500,7 +500,7 @@ QTableView {{
     selection-color: {p.yellow};
     outline: none;
 }}
-QTableView::item {{ padding: {s.xs}px {s.sm}px; }}
+QTableView::item {{ padding: {s.sm}px {s.md}px; }}
 QTableView::item:selected {{
     background: {p.yellow_wash};
     color: {p.yellow};
