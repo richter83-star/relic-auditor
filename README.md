@@ -5,7 +5,15 @@ estates. It reads loose files, folders, and ZIP files, detects project types, ma
 finds byte-identical duplicates, and produces review candidates. It never imports,
 executes, installs, changes, or deletes scanned code.
 
-v0.10.1 corrects the first installed-build usability findings: Claude setup is
+v0.10.2 adds a fail-closed Windows update path. Installed builds check the
+stable channel at a bounded cadence, the header always provides a manual
+**Check updates** action, and a three-step dialog explains version selection,
+download verification, and installation. Relic will not launch an update
+unless its exact size and SHA-256 match the first-party manifest and Windows
+validates the pinned Dracanus AI Authenticode publisher. See
+[docs/v0.10.2-release-notes.md](docs/v0.10.2-release-notes.md).
+
+v0.10.1 corrected the first installed-build usability findings: Claude setup is
 now distinct from successful runtime operation, timeouts replace optimistic
 status everywhere, the product shell keeps a visible five-step path, evidence
 tables preserve readable columns and expose a full-record inspector, and gated
@@ -82,6 +90,22 @@ python -m pip install -e ".[all]"
 ```
 
 On Windows PowerShell, keep the quotes around the extras.
+
+### Windows updates
+
+The packaged Evidence Console checks the stable update channel no more than
+once every 24 hours (or six hours after a failed check). Checks never interrupt
+an audit and never install silently. Select **Check updates** in the application
+header to check immediately. A candidate installer must pass all of these gates
+before the Install button is enabled:
+
+1. strict stable-channel manifest validation over HTTPS;
+2. declared filename, byte size, and SHA-256 verification; and
+3. a valid Windows Authenticode signature from the pinned Dracanus AI publisher.
+
+Source checkouts do not perform automatic update checks. The updater never
+receives or reads a scan target; it only handles the declared application
+installer in Relic's per-user Updates directory.
 
 ## Interactive dashboard
 

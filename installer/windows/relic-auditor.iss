@@ -1,5 +1,5 @@
 #define AppName "Relic Auditor"
-#define AppVersion "0.10.1"
+#define AppVersion "0.10.2"
 #define AppPublisher "Dracanus AI"
 #define AppURL "https://relic-auditor.briandrichter.chatgpt.site"
 #define BuildRoot GetEnv("RELIC_BUILD_ROOT")
@@ -24,7 +24,7 @@ DefaultGroupName=Relic Auditor
 DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 OutputDir={#OutputRoot}
-OutputBaseFilename=Relic-Auditor-Setup-0.10.1-x64
+OutputBaseFilename=Relic-Auditor-Setup-0.10.2-x64
 SetupIconFile={#InstallerRoot}\assets\relic-auditor.ico
 WizardStyle=modern
 WizardImageFile={#InstallerRoot}\assets\wizard-large.bmp
@@ -47,6 +47,13 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked
 Name: "addtopath"; Description: "Add the Relic command-line tool to my PATH"; GroupDescription: "Command line:"; Flags: checkedonce
+
+[InstallDelete]
+; PyInstaller onedir dependencies are fully managed by Relic. Refresh only
+; those payload directories so renamed libraries cannot accumulate on upgrade.
+; The Inno uninstaller, user configuration, and reports live elsewhere.
+Type: filesandordirs; Name: "{app}\_internal"
+Type: filesandordirs; Name: "{app}\cli\_internal"
 
 [Files]
 Source: "{#BuildRoot}\pyinstaller-dist\Relic Auditor\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs

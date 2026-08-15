@@ -6,7 +6,7 @@ import zipfile
 from pathlib import Path
 
 
-VERSION = "0.10.1"
+VERSION = "0.10.2"
 EXCLUDED_PARTS = {
     ".git",
     ".mypy_cache",
@@ -24,6 +24,7 @@ EXCLUDED_PARTS = {
 EXCLUDED_FILES = {
     ".github/workflows/windows-installer.yml",
     "tests/test_installer_sources.py",
+    "uv.lock",
 }
 EXCLUDED_PREFIXES = {"installer/windows/"}
 

@@ -1,6 +1,6 @@
-# Relic Auditor 0.10.1 — Windows installer
+# Relic Auditor 0.10.2 — Windows installer
 
-`Relic-Auditor-Setup-0.10.1-x64.exe` installs the frozen Relic Auditor 0.10.1 release for the current Windows user.
+`Relic-Auditor-Setup-0.10.2-x64.exe` installs the frozen Relic Auditor 0.10.2 release for the current Windows user.
 
 ## What it installs
 
@@ -8,12 +8,17 @@
 - `relic` command-line application, with an optional user-PATH entry enabled by default
 - Python 3.12, PySide6, keyring, and all required runtime files inside the application directory
 - A normal Windows uninstaller
+- A visible stable-channel update checker with verified installer handoff
 
 No separate Python installation and no manual PATH setup are required. The installer does not install or authenticate Claude Code. If Claude Max reasoning is used, the official `claude` command must already be installed and signed in with the intended subscription account.
 
 ## Safety and persistence
 
 - Installation is per-user by default and does not require administrator rights.
+- Installing over v0.10.0 or v0.10.1 upgrades the same application in place;
+  the stable AppId, install directory, shortcuts, and uninstall entry are reused.
+- Managed PyInstaller runtime directories are refreshed during upgrade so stale
+  dependencies do not accumulate.
 - Relic retains its read-only/no-execution boundary for scanned targets.
 - Uninstall removes the application and its exact CLI PATH entry.
 - Uninstall deliberately preserves Relic profiles and configuration under `%APPDATA%\Relic Auditor` and never removes reports created elsewhere.
@@ -28,7 +33,7 @@ No separate Python installation and no manual PATH setup are required. The insta
 From PowerShell in the download folder:
 
 ```powershell
-Get-FileHash ".\Relic-Auditor-Setup-0.10.1-x64.exe" -Algorithm SHA256
+Get-FileHash ".\Relic-Auditor-Setup-0.10.2-x64.exe" -Algorithm SHA256
 ```
 
 Compare the result with `SHA256SUMS.txt` from the same release.
@@ -36,3 +41,9 @@ Compare the result with `SHA256SUMS.txt` from the same release.
 ## Code signing
 
 The release manifest records the Authenticode status. An unsigned build is suitable for internal testing but Windows SmartScreen may warn until the installer is signed with a trusted code-signing certificate and has accumulated reputation.
+
+Relic's built-in updater is stricter than a manual install: it will not enable
+**Install update** unless Windows validates a signature from the pinned
+Dracanus AI publisher. Automatic checking can therefore ship in an internal
+unsigned build, but verified in-app installation remains blocked until the
+Windows workflow receives the trusted code-signing certificate.

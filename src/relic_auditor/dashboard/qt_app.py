@@ -56,6 +56,16 @@ from PySide6.QtWidgets import (
 
 from .. import __version__
 from ..build_packs import BuildPackService
+from ..updater import (
+    DEFAULT_UPDATE_MANIFEST_URL,
+    PreparedUpdate,
+    UpdateManifest,
+    fetch_update_manifest,
+    launch_prepared_update,
+    prepare_update,
+    save_update_check_state,
+    should_check_automatically,
+)
 from ..product_discovery.entitlements import ProductCapability
 from ..llm.claude_code import (
     DEFAULT_EFFORT,
@@ -102,6 +112,7 @@ from .widgets import (
     public_record,
 )
 from .build_pack_dialog import BuildPackDialog
+from .update_dialog import UpdateDialog
 
 
 class ScanWorker(QObject):
@@ -148,6 +159,46 @@ class _ScanCancelled(Exception):
     """Internal signal that the user asked to stop."""
 
 
+class UpdateCheckWorker(QObject):
+    """Fetch and validate the small stable-channel manifest off the UI thread."""
+
+    finished = Signal(object)
+    failed = Signal(str)
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            manifest = fetch_update_manifest(DEFAULT_UPDATE_MANIFEST_URL)
+        except Exception as exc:
+            self.failed.emit(f"{type(exc).__name__}: {exc}")
+            return
+        self.finished.emit(manifest)
+
+
+class UpdateDownloadWorker(QObject):
+    """Download and publisher-verify an update without freezing the dashboard."""
+
+    progress = Signal(int, int)
+    finished = Signal(object)
+    failed = Signal(str)
+
+    def __init__(self, manifest: UpdateManifest) -> None:
+        super().__init__()
+        self.manifest = manifest
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            prepared = prepare_update(
+                self.manifest,
+                progress=lambda received, total: self.progress.emit(received, total),
+            )
+        except Exception as exc:
+            self.failed.emit(f"{type(exc).__name__}: {exc}")
+            return
+        self.finished.emit(prepared)
+
+
 class RelicWindow(QMainWindow):
     def __init__(self, initial_target: Path | None = None) -> None:
         super().__init__()
@@ -155,6 +206,14 @@ class RelicWindow(QMainWindow):
         self.report_directory: Path | None = None
         self._scan_thread: QThread | None = None
         self._scan_worker: ScanWorker | None = None
+        self._update_check_thread: QThread | None = None
+        self._update_check_worker: UpdateCheckWorker | None = None
+        self._update_download_thread: QThread | None = None
+        self._update_download_worker: UpdateDownloadWorker | None = None
+        self._update_check_manual = False
+        self._available_update: UpdateManifest | None = None
+        self._prepared_update: PreparedUpdate | None = None
+        self._update_dialog: UpdateDialog | None = None
         self._close_when_done = False
         self._scan_started_at: float | None = None
         self._provider_configured = False
@@ -222,6 +281,8 @@ class RelicWindow(QMainWindow):
         self.refresh_report_history()
         if initial_target is not None:
             QTimer.singleShot(150, self.start_scan)
+        if getattr(sys, "frozen", False) and should_check_automatically():
+            QTimer.singleShot(2500, self._auto_check_for_updates)
 
     # -- construction -----------------------------------------------------
 
@@ -358,11 +419,15 @@ class RelicWindow(QMainWindow):
             "Relic reads and classifies. It never executes, installs, moves, "
             "or deletes anything in the scanned target."
         )
-        version = QLabel(f"v{__version__}")
-        version.setObjectName("dimLabel")
+        self.update_button = SecondaryButton("Check updates")
+        self.update_button.setAccessibleName("Check for Relic Auditor updates")
+        self.update_button.clicked.connect(self.check_for_updates)
+        self.version_label = QLabel(f"v{__version__}")
+        self.version_label.setObjectName("dimLabel")
 
         layout.addWidget(self.trust_badge)
-        layout.addWidget(version)
+        layout.addWidget(self.update_button)
+        layout.addWidget(self.version_label)
         return header
 
     def _build_product_shell(self) -> QWidget:
@@ -1657,7 +1722,204 @@ class RelicWindow(QMainWindow):
         if self.report_directory is not None:
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(self.report_directory)))
 
+    @Slot()
+    def _auto_check_for_updates(self) -> None:
+        self._begin_update_check(manual=False)
+
+    @Slot()
+    def check_for_updates(self) -> None:
+        if self._available_update is not None:
+            self._show_update_dialog()
+            return
+        self._begin_update_check(manual=True)
+
+    def _begin_update_check(self, *, manual: bool) -> None:
+        if self._update_check_thread is not None:
+            return
+        self._update_check_manual = manual
+        self.update_button.setText("Checking…")
+        self.update_button.setEnabled(False)
+        self.status_message.setText("Checking the stable Relic Auditor update channel…")
+
+        thread = QThread(self)
+        worker = UpdateCheckWorker()
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.finished.connect(self._update_check_finished)
+        worker.failed.connect(self._update_check_failed)
+        worker.finished.connect(thread.quit)
+        worker.failed.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        worker.failed.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(self._update_check_thread_finished)
+        self._update_check_thread = thread
+        self._update_check_worker = worker
+        thread.start()
+
+    @Slot(object)
+    def _update_check_finished(self, manifest: UpdateManifest) -> None:
+        try:
+            save_update_check_state(success=True)
+        except OSError:
+            pass
+        self.update_button.setEnabled(True)
+        if manifest.is_newer_than(__version__):
+            self._available_update = manifest
+            self.update_button.setText(f"Update v{manifest.version}")
+            self.update_button.setToolTip(
+                f"Relic Auditor v{manifest.version} is ready to download and verify."
+            )
+            self.status_message.setText(
+                f"Update available · v{__version__} → v{manifest.version}"
+            )
+            if self._update_check_manual:
+                self._show_update_dialog()
+            return
+        self._available_update = None
+        self.update_button.setText("Up to date")
+        self.update_button.setToolTip("Click to check the stable channel again.")
+        self.status_message.setText(f"Relic Auditor v{__version__} is up to date")
+        if self._update_check_manual:
+            QMessageBox.information(
+                self,
+                "Relic Auditor update",
+                f"Relic Auditor v{__version__} is the newest stable version.",
+            )
+
+    @Slot(str)
+    def _update_check_failed(self, message: str) -> None:
+        try:
+            save_update_check_state(success=False)
+        except OSError:
+            pass
+        self.update_button.setText("Check updates")
+        self.update_button.setEnabled(True)
+        self.status_message.setText("Update check unavailable · Relic remains ready offline")
+        if self._update_check_manual:
+            QMessageBox.warning(
+                self,
+                "Update check unavailable",
+                "Relic could not verify the stable update channel. Nothing was "
+                f"downloaded or installed.\n\n{message}",
+            )
+
+    @Slot()
+    def _update_check_thread_finished(self) -> None:
+        self._update_check_thread = None
+        self._update_check_worker = None
+
+    def _show_update_dialog(self) -> None:
+        manifest = self._available_update
+        if manifest is None:
+            return
+        if self._update_dialog is not None:
+            self._update_dialog.raise_()
+            self._update_dialog.activateWindow()
+            return
+        dialog = UpdateDialog(__version__, manifest, self)
+        dialog.download_requested.connect(self._download_update)
+        dialog.install_requested.connect(self._install_prepared_update)
+        dialog.finished.connect(self._update_dialog_closed)
+        self._update_dialog = dialog
+        if (
+            self._prepared_update is not None
+            and self._prepared_update.manifest.version == manifest.version
+        ):
+            dialog.set_ready(self._prepared_update.installer_path)
+        dialog.open()
+
+    @Slot(int)
+    def _update_dialog_closed(self, _result: int) -> None:
+        self._update_dialog = None
+
+    @Slot()
+    def _download_update(self) -> None:
+        manifest = self._available_update
+        dialog = self._update_dialog
+        if manifest is None or dialog is None or self._update_download_thread is not None:
+            return
+        dialog.set_downloading()
+        self.status_message.setText(
+            f"Downloading and verifying Relic Auditor v{manifest.version}…"
+        )
+
+        thread = QThread(self)
+        worker = UpdateDownloadWorker(manifest)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.progress.connect(dialog.set_download_progress)
+        worker.finished.connect(self._update_download_finished)
+        worker.failed.connect(self._update_download_failed)
+        worker.finished.connect(thread.quit)
+        worker.failed.connect(thread.quit)
+        worker.finished.connect(worker.deleteLater)
+        worker.failed.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        thread.finished.connect(self._update_download_thread_finished)
+        self._update_download_thread = thread
+        self._update_download_worker = worker
+        thread.start()
+
+    @Slot(object)
+    def _update_download_finished(self, prepared: PreparedUpdate) -> None:
+        self._prepared_update = prepared
+        self.status_message.setText(
+            f"Update verified · Relic Auditor v{prepared.manifest.version} is ready"
+        )
+        if self._update_dialog is not None:
+            self._update_dialog.set_ready(prepared.installer_path)
+
+    @Slot(str)
+    def _update_download_failed(self, message: str) -> None:
+        self._prepared_update = None
+        self.status_message.setText("Update blocked · installer verification did not pass")
+        if self._update_dialog is not None:
+            self._update_dialog.set_error(
+                "Relic did not run the installer because download or publisher "
+                f"verification failed.\n\n{message}"
+            )
+
+    @Slot()
+    def _update_download_thread_finished(self) -> None:
+        self._update_download_thread = None
+        self._update_download_worker = None
+
+    @Slot()
+    def _install_prepared_update(self) -> None:
+        prepared = self._prepared_update
+        if prepared is None:
+            return
+        if self._scan_thread is not None:
+            QMessageBox.warning(
+                self,
+                "Audit still running",
+                "Finish or cancel the current audit before installing the update.",
+            )
+            return
+        try:
+            launch_prepared_update(prepared)
+        except (OSError, RuntimeError) as exc:
+            if self._update_dialog is not None:
+                self._update_dialog.set_error(str(exc))
+            QMessageBox.critical(self, "Update could not start", str(exc))
+            return
+        if self._update_dialog is not None:
+            self._update_dialog.accept()
+        application = QApplication.instance()
+        if application is not None:
+            application.quit()
+
     def closeEvent(self, event: QCloseEvent) -> None:
+        update_thread = self._update_download_thread or self._update_check_thread
+        if update_thread is not None and update_thread.isRunning():
+            QMessageBox.information(
+                self,
+                "Update task still running",
+                "Wait for the current update check or verified download to finish before closing Relic.",
+            )
+            event.ignore()
+            return
         if self._scan_thread is None:
             event.accept()
             return

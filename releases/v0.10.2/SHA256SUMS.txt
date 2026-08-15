@@ -1,0 +1,3 @@
+190740e2d8f2d30238858fe2085c48ea9e8aed873d6cb0b22b4bb6f8f70dc7bc  relic-auditor-0.10.2.zip
+c087b2af25c0ceccf19ab2dead1952b1e5a38b6c5dbdadbc894e2926a79e9791  relic_auditor-0.10.2-py3-none-any.whl
+57af59f3abfc2fddc857fc938a8ceb2452c2dbdfd34775abe9cd1faa52c48aab  relic_auditor-0.10.2.tar.gz

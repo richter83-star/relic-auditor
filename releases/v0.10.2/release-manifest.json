@@ -1,0 +1,39 @@
+{
+  "artifacts": [
+    {
+      "file": "relic-auditor-0.10.2.zip",
+      "sha256": "190740e2d8f2d30238858fe2085c48ea9e8aed873d6cb0b22b4bb6f8f70dc7bc",
+      "size_bytes": 268546,
+      "type": "frozen-source"
+    },
+    {
+      "file": "relic_auditor-0.10.2-py3-none-any.whl",
+      "sha256": "c087b2af25c0ceccf19ab2dead1952b1e5a38b6c5dbdadbc894e2926a79e9791",
+      "size_bytes": 182985,
+      "type": "wheel"
+    },
+    {
+      "file": "relic_auditor-0.10.2.tar.gz",
+      "sha256": "57af59f3abfc2fddc857fc938a8ceb2452c2dbdfd34775abe9cd1faa52c48aab",
+      "size_bytes": 213568,
+      "type": "sdist"
+    }
+  ],
+  "baseline_commit": "31aa5af4c4a621ed8d8397fa743b6ccf441bdcc2",
+  "installer": {
+    "authenticode_required_for_in_app_install": true,
+    "native_validation": "pending-windows-workflow",
+    "source_sha256_pinned": true,
+    "status": "prepared-not-built"
+  },
+  "product": "Relic Auditor",
+  "release_status": "branch-rc-no-tag-no-release",
+  "tests": {
+    "compileall": "passed",
+    "frozen_source_suite": "352-passed-1-skipped-2-platform-deselected",
+    "qt_and_repository_suite": "358-passed-1-skipped-2-platform-deselected",
+    "updater_and_installer_source_gates": "25-passed",
+    "wheel_cli_smoke": "passed"
+  },
+  "version": "0.10.2"
+}

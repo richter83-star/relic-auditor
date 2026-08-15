@@ -1,29 +1,34 @@
 # Build status
 
-The Relic Auditor 0.8.3 Windows installer source and release automation are ready for the verified GitHub Actions build.
+Relic Auditor 0.10.2 is a local release candidate based on the verified
+v0.10.1 source archive.
 
-## Verified locally
+## Implemented
 
-- Frozen v0.8.3 archive SHA-256 matches `1f3a20833ff454c08a681a1fb6dc6dfd8888992f7383045544dc98d0b5ba794f`.
-- Installer source safeguards pass.
-- Python entry points compile.
-- Icon and Inno Setup wizard assets render correctly.
-- No Relic analysis-engine file was modified.
+- strict stable-channel update manifest and semantic version comparison
+- bounded HTTPS installer download with atomic finalization
+- exact size and SHA-256 verification
+- pinned Dracanus AI Authenticode verification and pre-launch recheck
+- visible manual update check and cadence-limited checks in installed builds
+- three-step download, verify, and install dialog
+- same-AppId in-place installer upgrade with managed runtime cleanup
+- clean-install, repeat-install, configuration-preservation, and uninstall gates
 
-## Windows build result
+## Local verification
 
-GitHub Actions run
-[`30589898811`](https://github.com/richter83-star/relic-auditor/actions/runs/30589898811)
-completed successfully on `windows-latest`.
+- updater unit tests pass
+- available non-GUI source suite passes
+- Python sources compile
+- deterministic source archive, wheel, and sdist can be generated
 
-- Installer: `Relic-Auditor-Setup-0.8.3-x64.exe`
-- Size: `69,242,848` bytes
-- SHA-256: `0f1d1efe8375772d8ff23ad959cc96867174e7d0e4becded663933b09927daeb`
-- Source tests: passed
-- Bundled CLI/GUI smoke tests: passed
-- Clean install and installed CLI/GUI smoke tests: passed
-- Uninstall, user-config preservation, and PATH cleanup: passed
-- Authenticode: `NotSigned`
+## Remaining release gates
 
-The unsigned build is suitable for internal testing. Windows SmartScreen may
-warn until a trusted signing certificate is configured.
+- commit/push approval
+- complete GitHub Actions Windows source and frozen-source suites
+- bundled and installed GUI/CLI smoke tests
+- repeat-install and stale-runtime cleanup verification on Windows
+- permanent public update endpoint
+- trusted Dracanus AI code-signing certificate
+
+The updater will not launch an unsigned installer. Until signing and permanent
+hosting are configured, manual installation remains the internal-test path.

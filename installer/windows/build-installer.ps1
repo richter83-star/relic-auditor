@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$SourceArchive = "",
-    [string]$ExpectedSourceSha256 = "a80211a87864f131fefb6bf58359c0db65ae8d74414b94cae8cd4560d63a4b3d",
+    [string]$ExpectedSourceSha256 = "190740e2d8f2d30238858fe2085c48ea9e8aed873d6cb0b22b4bb6f8f70dc7bc",
     [string]$OutputDirectory = "",
     [string]$InnoSetupPath = "",
     [string]$SigningCertificate = "",
@@ -16,7 +16,7 @@ $ProgressPreference = "SilentlyContinue"
 $InstallerRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $KitRoot = (Resolve-Path (Join-Path $InstallerRoot "..\..")).Path
 if (-not $SourceArchive) {
-    $SourceArchive = Join-Path $KitRoot "releases\relic-auditor-0.10.1.zip"
+    $SourceArchive = Join-Path $KitRoot "releases\relic-auditor-0.10.2.zip"
 }
 if (-not $OutputDirectory) {
     $OutputDirectory = Join-Path $KitRoot "release-output"
@@ -106,7 +106,7 @@ function Sign-File {
 }
 
 if (-not [Environment]::Is64BitOperatingSystem) {
-    throw "Relic Auditor 0.10.1 supports 64-bit Windows only."
+    throw "Relic Auditor 0.10.2 supports 64-bit Windows only."
 }
 
 $ActualSourceHash = (Get-FileHash -LiteralPath $SourceArchive -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -130,7 +130,7 @@ $env:TEMP = $TestTempRoot
 $env:TMP = $TestTempRoot
 Get-ChildItem -LiteralPath $OutputDirectory -File -ErrorAction SilentlyContinue |
     Where-Object { $_.Name -in @(
-        "Relic-Auditor-Setup-0.10.1-x64.exe",
+        "Relic-Auditor-Setup-0.10.2-x64.exe",
         "SHA256SUMS.txt",
         "release-manifest.json",
         "INSTALLER-README.md"
@@ -139,13 +139,13 @@ Get-ChildItem -LiteralPath $OutputDirectory -File -ErrorAction SilentlyContinue 
 
 $UnpackedRoot = Join-Path $SafeBuildRoot "source-unpacked"
 Expand-Archive -LiteralPath $SourceArchive -DestinationPath $UnpackedRoot -Force
-$SourceRoot = Join-Path $UnpackedRoot "relic-auditor-0.10.1"
+$SourceRoot = Join-Path $UnpackedRoot "relic-auditor-0.10.2"
 if (-not (Test-Path -LiteralPath (Join-Path $SourceRoot "pyproject.toml") -PathType Leaf)) {
     throw "The canonical source root was not found after extraction."
 }
 $ProjectMetadata = Get-Content -LiteralPath (Join-Path $SourceRoot "pyproject.toml") -Raw
-if ($ProjectMetadata -notmatch '(?m)^version = "0\.10\.1"$') {
-    throw "The source archive does not identify itself as Relic Auditor 0.10.1."
+if ($ProjectMetadata -notmatch '(?m)^version = "0\.10\.2"$') {
+    throw "The source archive does not identify itself as Relic Auditor 0.10.2."
 }
 
 $Launcher = Get-PythonLauncher
@@ -159,7 +159,7 @@ Invoke-Checked -Command $VenvPython -Arguments @("-m", "pytest", "-q", (Join-Pat
 
 Invoke-Checked -Command $VenvPython -Arguments @("-m", "pytest", "-q", (Join-Path $SourceRoot "tests"))
 $VersionOutput = (& $VenvPython "-m" "relic_auditor" "--version" 2>&1 | Out-String).Trim()
-if ($LASTEXITCODE -ne 0 -or $VersionOutput -ne "relic 0.10.1") {
+if ($LASTEXITCODE -ne 0 -or $VersionOutput -ne "relic 0.10.2") {
     throw "Unexpected source version output: $VersionOutput"
 }
 
@@ -187,7 +187,7 @@ foreach ($ExpectedExecutable in @($GuiExe, $CliExe)) {
 }
 
 $BundledVersion = (& $CliExe "--version" 2>&1 | Out-String).Trim()
-if ($LASTEXITCODE -ne 0 -or $BundledVersion -ne "relic 0.10.1") {
+if ($LASTEXITCODE -ne 0 -or $BundledVersion -ne "relic 0.10.2") {
     throw "Bundled CLI version verification failed: $BundledVersion"
 }
 $Fixture = Join-Path $SourceRoot "tests\fixtures\false_compliance"
@@ -202,7 +202,7 @@ if ($GuiSmoke.ExitCode -ne 0) {
 
 $Compiler = Find-InnoSetup $InnoSetupPath
 Invoke-Checked -Command $Compiler -Arguments @("/Qp", (Join-Path $InstallerRoot "relic-auditor.iss"))
-$InstallerExe = Join-Path $OutputDirectory "Relic-Auditor-Setup-0.10.1-x64.exe"
+$InstallerExe = Join-Path $OutputDirectory "Relic-Auditor-Setup-0.10.2-x64.exe"
 if (-not (Test-Path -LiteralPath $InstallerExe -PathType Leaf)) {
     throw "Inno Setup did not produce the expected installer."
 }
@@ -224,7 +224,7 @@ try {
     $InstalledCli = Join-Path $CleanInstall "cli\relic.exe"
     $InstalledGui = Join-Path $CleanInstall "Relic Auditor.exe"
     $InstalledVersion = (& $InstalledCli "--version" 2>&1 | Out-String).Trim()
-    if ($LASTEXITCODE -ne 0 -or $InstalledVersion -ne "relic 0.10.1") {
+    if ($LASTEXITCODE -ne 0 -or $InstalledVersion -ne "relic 0.10.2") {
         throw "Installed CLI version verification failed: $InstalledVersion"
     }
     $InstallSmokeRoot = Join-Path $SafeBuildRoot "installed-smoke"
@@ -241,6 +241,27 @@ try {
     }
     if (-not (Test-Path -LiteralPath $Sentinel -PathType Leaf)) {
         throw "The installer altered pre-existing Relic user configuration."
+    }
+
+    $ObsoleteGuiRuntime = Join-Path $CleanInstall "_internal\obsolete-runtime.dll"
+    $ObsoleteCliRuntime = Join-Path $CleanInstall "cli\_internal\obsolete-runtime.dll"
+    Set-Content -LiteralPath $ObsoleteGuiRuntime -Value "stale GUI runtime" -Encoding ASCII
+    Set-Content -LiteralPath $ObsoleteCliRuntime -Value "stale CLI runtime" -Encoding ASCII
+    $UpgradeProcess = Start-Process -FilePath $InstallerExe -ArgumentList @(
+        "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/TASKS=addtopath", "/DIR=`"$CleanInstall`""
+    ) -PassThru -Wait
+    if ($UpgradeProcess.ExitCode -ne 0) {
+        throw "In-place upgrade verification failed with exit code $($UpgradeProcess.ExitCode)."
+    }
+    if ((Test-Path -LiteralPath $ObsoleteGuiRuntime) -or (Test-Path -LiteralPath $ObsoleteCliRuntime)) {
+        throw "The in-place upgrade left obsolete managed runtime files behind."
+    }
+    if (-not (Test-Path -LiteralPath $Sentinel -PathType Leaf)) {
+        throw "The in-place upgrade altered Relic user configuration."
+    }
+    $UpgradedVersion = (& $InstalledCli "--version" 2>&1 | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $UpgradedVersion -ne "relic 0.10.2") {
+        throw "In-place upgrade version verification failed: $UpgradedVersion"
     }
 
     $Uninstaller = Join-Path $CleanInstall "unins000.exe"
@@ -272,7 +293,7 @@ $InstallerSize = (Get-Item -LiteralPath $InstallerExe).Length
 $Signature = Get-AuthenticodeSignature -LiteralPath $InstallerExe
 $Manifest = [ordered]@{
     product = "Relic Auditor"
-    version = "0.10.1"
+    version = "0.10.2"
     architecture = "x64"
     minimum_windows_build = "10.0.17763"
     source_archive = (Split-Path -Leaf $SourceArchive)
@@ -289,8 +310,12 @@ $Manifest = [ordered]@{
     bundled_cli_smoke = "passed"
     bundled_gui_smoke = "passed"
     clean_install_smoke = "passed"
+    in_place_upgrade_smoke = "passed"
+    stale_runtime_cleanup = "passed"
     uninstall_preserved_user_config = $true
     cli_path_cleanup = "passed"
+    update_manifest_url = "https://relic-auditor.briandrichter.chatgpt.site/downloads/stable.json"
+    updater_requires_trusted_authenticode = $true
     pyinstaller = "6.21.0"
 }
 $Manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $OutputDirectory "release-manifest.json") -Encoding UTF8

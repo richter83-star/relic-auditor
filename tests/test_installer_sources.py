@@ -7,8 +7,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WINDOWS = ROOT / "installer" / "windows"
-SOURCE = ROOT / "releases" / "relic-auditor-0.10.1.zip"
-EXPECTED_SOURCE_SHA256 = "a80211a87864f131fefb6bf58359c0db65ae8d74414b94cae8cd4560d63a4b3d"
+SOURCE = ROOT / "releases" / "relic-auditor-0.10.2.zip"
+EXPECTED_SOURCE_SHA256 = "190740e2d8f2d30238858fe2085c48ea9e8aed873d6cb0b22b4bb6f8f70dc7bc"
 
 
 def test_frozen_source_is_exact_release() -> None:
@@ -22,11 +22,15 @@ def test_installer_is_per_user_and_preserves_configuration() -> None:
     assert "%APPDATA%" not in script
     assert "{app}\\cli" in script
     assert "RemoveFromUserPath" in script
+    assert "[InstallDelete]" in script
+    assert 'Name: "{app}\\_internal"' in script
+    assert 'Name: "{app}\\cli\\_internal"' in script
     assert "[UninstallDelete]" not in script
 
 
 def test_application_manifest_is_non_elevated_and_dpi_aware() -> None:
     manifest = (WINDOWS / "assets" / "app.manifest").read_text(encoding="utf-8")
+    assert 'assemblyIdentity version="0.10.2.0"' in manifest
     assert 'requestedExecutionLevel level="asInvoker"' in manifest
     assert "PerMonitorV2" in manifest
     assert "longPathAware" in manifest
@@ -35,12 +39,16 @@ def test_application_manifest_is_non_elevated_and_dpi_aware() -> None:
 def test_build_is_pinned_and_outputs_both_frontends() -> None:
     requirements = (WINDOWS / "requirements-build.txt").read_text(encoding="utf-8")
     spec = (WINDOWS / "relic-auditor.spec").read_text(encoding="utf-8")
+    version_info = (WINDOWS / "assets" / "version_info.txt").read_text(encoding="utf-8")
     assert "PyInstaller==6.21.0" in requirements
     assert 'name="Relic Auditor"' in spec
     assert 'name="relic"' in spec
     assert 'collect_submodules("keyring.backends")' in spec
     assert "console=False" in spec
     assert "console=True" in spec
+    assert "filevers=(0, 10, 2, 0)" in version_info
+    assert "prodvers=(0, 10, 2, 0)" in version_info
+    assert "FileVersion', '0.10.2.0'" in version_info
 
 
 def test_clean_install_and_uninstall_are_release_gates() -> None:
@@ -52,11 +60,11 @@ def test_clean_install_and_uninstall_are_release_gates() -> None:
         encoding="utf-8"
     )
     assert EXPECTED_SOURCE_SHA256 in build
-    assert "version = \"0\\.10\\.1\"" in build
-    assert "version = \"0\\.10\\.0\"" not in build
-    assert "Relic Auditor 0.10.1" in dashboard
+    assert "version = \"0\\.10\\.2\"" in build
+    assert "version = \"0\\.10\\.1\"" not in build
+    assert "Relic Auditor 0.10.2" in dashboard
     assert "Relic Auditor 0.10.0" not in dashboard
-    assert "Relic-Auditor-Setup-0.10.1-x64.exe" in installer_readme
+    assert "Relic-Auditor-Setup-0.10.2-x64.exe" in installer_readme
     assert "Relic-Auditor-Setup-0.10.0-x64.exe" not in installer_readme
     for required in (
         "Frozen source hash mismatch",
@@ -64,9 +72,12 @@ def test_clean_install_and_uninstall_are_release_gates() -> None:
         "$env:TMP = $TestTempRoot",
         "bundle-smoke",
         "clean-install",
+        "In-place upgrade verification failed",
+        "obsolete-runtime.dll",
         "installer-preservation-",
         "uninstall_preserved_user_config",
         "Get-AuthenticodeSignature",
+        "updater_requires_trusted_authenticode",
     ):
         assert required in build
 
@@ -76,7 +87,7 @@ def test_workflow_uses_windows_and_only_frozen_source() -> None:
         encoding="utf-8"
     )
     assert "runs-on: windows-latest" in workflow
-    assert "releases/relic-auditor-0.10.1.zip" in workflow
+    assert "releases/relic-auditor-0.10.2.zip" in workflow
     assert "SkipSourceTests" not in workflow
     assert EXPECTED_SOURCE_SHA256 in workflow
     assert "actions/upload-artifact@v4" in workflow
