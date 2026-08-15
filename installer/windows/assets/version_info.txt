@@ -16,12 +16,12 @@ VSVersionInfo(
         [
           StringStruct('CompanyName', 'Dracanus AI'),
           StringStruct('FileDescription', 'Relic Auditor Evidence Console'),
-          StringStruct('FileVersion', '0.10.0.0'),
+          StringStruct('FileVersion', '0.10.1.0'),
           StringStruct('InternalName', 'RelicAuditor'),
           StringStruct('LegalCopyright', 'Copyright Dracanus AI'),
           StringStruct('OriginalFilename', 'Relic Auditor.exe'),
           StringStruct('ProductName', 'Relic Auditor'),
-          StringStruct('ProductVersion', '0.10.0.0'),
+          StringStruct('ProductVersion', '0.10.1.0'),
         ],
       )
     ]),

@@ -491,12 +491,7 @@ def test_cancel_button_keeps_the_object_name_its_styling_depends_on(window) -> N
 
 
 def test_column_floor_does_not_ratchet_down_permanently(window, app) -> None:
-    """A narrow layout must not shrink the floor for every later layout.
-
-    fit_table_columns writes a reduced minimum section size so columns can fit
-    a cramped pane. Deriving the next reduction from that written-back value
-    would ratchet the floor down and never let columns widen again.
-    """
+    """A narrow layout must never trade readable cells for fewer scrollbars."""
 
     table = window.files
     rows = [
@@ -524,9 +519,8 @@ def test_column_floor_does_not_ratchet_down_permanently(window, app) -> None:
     table.resize_columns()
     app.processEvents()
     recovered = table.table.horizontalHeader().minimumSectionSize()
-    assert recovered >= wide_floor, (
-        f"column floor ratcheted down: {wide_floor} -> {recovered}"
-    )
+    assert recovered == wide_floor
+    assert recovered >= components.ABSOLUTE_MIN_SECTION
 
 
 def test_active_scan_counters_start_unmeasured_not_zero(window) -> None:

@@ -7,8 +7,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 WINDOWS = ROOT / "installer" / "windows"
-SOURCE = ROOT / "releases" / "relic-auditor-0.10.0.zip"
-EXPECTED_SOURCE_SHA256 = "d74a69031794da7698ac8d571f6a0199d3ef15e23d5d4cdeb4bc68911a2668a2"
+SOURCE = ROOT / "releases" / "relic-auditor-0.10.1.zip"
+EXPECTED_SOURCE_SHA256 = "d0e67e54a7315d5c2dd89746353868d5da10f37275a7f8e109554d99abca34e0"
 
 
 def test_frozen_source_is_exact_release() -> None:
@@ -63,7 +63,7 @@ def test_workflow_uses_windows_and_only_frozen_source() -> None:
         encoding="utf-8"
     )
     assert "runs-on: windows-latest" in workflow
-    assert "releases/relic-auditor-0.10.0.zip" in workflow
+    assert "releases/relic-auditor-0.10.1.zip" in workflow
     assert "SkipSourceTests" not in workflow
     assert EXPECTED_SOURCE_SHA256 in workflow
     assert "actions/upload-artifact@v4" in workflow

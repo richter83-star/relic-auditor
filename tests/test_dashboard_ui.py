@@ -30,6 +30,7 @@ from relic_auditor.audit import audit_estate  # noqa: E402
 from relic_auditor.dashboard import components, theme  # noqa: E402
 from relic_auditor.dashboard.core import DashboardBundle, DashboardOptions  # noqa: E402
 from relic_auditor.dashboard.qt_app import RelicWindow  # noqa: E402
+from relic_auditor.llm.schemas import LLMReasoningResult  # noqa: E402
 
 
 #: Windows display-scaling levels the console must survive. Qt applies the
@@ -203,7 +204,7 @@ def test_provider_rows_present_and_labelled(window) -> None:
             "authentication_type": "claude-subscription",
         }
     )
-    assert card.badge.text() == "READY"
+    assert card.badge.text() == "CONFIGURED"
     assert "subscription" in card.billing_label.text().lower()
     # Billing model is stated in words, not implied by colour alone.
     assert "api-key" in card.billing_label.text().lower() or "api" in card.billing_label.text().lower()
@@ -212,7 +213,7 @@ def test_provider_rows_present_and_labelled(window) -> None:
 # 7. Provider ready and unavailable states ---------------------------------
 
 
-def test_provider_ready_and_unavailable_states(window) -> None:
+def test_provider_setup_and_unavailable_states(window) -> None:
     card = window.provider_card
     card.set_status(
         {
@@ -241,6 +242,43 @@ def test_provider_ready_and_unavailable_states(window) -> None:
         }
     )
     assert card.badge.text() == "API KEY"
+
+
+def test_provider_timeout_overrides_configured_state_everywhere(window, tmp_path) -> None:
+    estate = tmp_path / "estate"
+    estate.mkdir()
+    (estate / "main.py").write_text("print('static evidence')\n", encoding="utf-8")
+    bundle = DashboardBundle(
+        audit=audit_estate(estate),
+        options=DashboardOptions(),
+        llm_reasoning=LLMReasoningResult(
+            profile="Claude-Max",
+            protocol="claude-code",
+            model="opus",
+            auth_mode="claude-subscription",
+            status="unavailable",
+            prompt_sha256="0" * 64,
+            input_chars=100,
+            narrative="Deterministic results remain available.",
+            error="ClaudeCodeError: Claude Code timed out after 90 seconds",
+            effort="high",
+        ),
+    )
+
+    window.provider_card.set_status(
+        {
+            "ready": True,
+            "executable_found": True,
+            "logged_in": True,
+            "subscription_detected": True,
+            "authentication_type": "claude-subscription",
+        }
+    )
+    window._load_bundle(bundle)
+
+    assert window.provider_badge.text() == "CLAUDE: TIMED OUT"
+    assert window.provider_card.badge.text() == "TIMED OUT"
+    assert "remain complete" in window.provider_card.message.text()
 
 
 def test_sanitized_provider_error_is_visible_not_hidden(window) -> None:
@@ -345,7 +383,7 @@ def test_panels_stack_vertically_at_minimum_width(window, app) -> None:
 # 5. Table resize behaviour -------------------------------------------------
 
 
-def test_table_columns_fill_viewport_without_horizontal_scroll(window, app) -> None:
+def test_table_columns_keep_readable_floor_and_stretch_narrative(window, app) -> None:
     _laid_out(window, app, 1920, 1080)
     table = window.files
     table.set_rows(
@@ -364,12 +402,15 @@ def test_table_columns_fill_viewport_without_horizontal_scroll(window, app) -> N
     app.processEvents()
     table.resize_columns()
     app.processEvents()
-    total = sum(
-        table.table.columnWidth(index) for index in range(table.model.columnCount())
+    floor = table.table.horizontalHeader().minimumSectionSize()
+    assert floor >= components.ABSOLUTE_MIN_SECTION
+    assert all(
+        table.table.columnWidth(index) >= floor
+        for index in range(table.model.columnCount())
     )
-    viewport = table.table.viewport().width()
-    assert total <= viewport + 40, (
-        f"columns overflow viewport: {total} > {viewport}"
+    warnings = table.model.columnCount() - 1
+    assert (
+        table.table.horizontalHeader().sectionResizeMode(warnings).name == "Stretch"
     )
 
 
@@ -377,6 +418,12 @@ def test_table_row_height_follows_font_metrics(window) -> None:
     table = window.files
     metrics = QFontMetrics(table.table.font())
     assert table.table.verticalHeader().defaultSectionSize() >= metrics.height()
+
+
+def test_findings_table_has_persistent_full_record_inspector(window) -> None:
+    table = window.acquisition
+    assert table.details.placeholderText().startswith("Select a row")
+    assert table.details.minimumHeight() > table.table.verticalHeader().defaultSectionSize()
 
 
 # 8. Long Windows paths -----------------------------------------------------
@@ -674,6 +721,24 @@ def test_default_product_shell_has_exactly_three_sections(app) -> None:
         assert not win.provider_card.isVisible()
         assert not win.tabs.isVisible()
         assert win.mode.currentData() == "full"
+        assert win.workflow_step_badge.text() == "STEP 1 OF 5"
+        assert win.workflow_action_button.text() == "Choose folder"
+    finally:
+        win.close()
+        win.deleteLater()
+        app.processEvents()
+
+
+def test_guided_workflow_advances_when_target_is_selected(app, tmp_path) -> None:
+    win = RelicWindow()
+    win.show()
+    app.processEvents()
+    try:
+        win.target_selector.set_path(str(tmp_path))
+        app.processEvents()
+        assert win.workflow_step_badge.text() == "STEP 2 OF 5"
+        assert win.workflow_step_title.text() == "Run the audit"
+        assert win.workflow_action_button.text() == "Run audit"
     finally:
         win.close()
         win.deleteLater()

@@ -8,6 +8,7 @@ scaling (100%-200%) grows the control rather than clipping the glyphs.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Callable, Iterable
 
@@ -22,9 +23,11 @@ from PySide6.QtWidgets import (
     QHeaderView,
     QLabel,
     QLineEdit,
+    QPlainTextEdit,
     QProgressBar,
     QPushButton,
     QSizePolicy,
+    QSplitter,
     QTableView,
     QVBoxLayout,
     QWidget,
@@ -357,12 +360,12 @@ class PathSelector(QWidget):
 
 
 class ProviderStatusCard(RelicPanel):
-    """Reasoning-provider readiness.
+    """Reasoning-provider setup and last-request state.
 
     Claude Code / Claude Max subscription billing is stated separately from
-    Anthropic API-key billing so the two are never confused. Every row wraps
-    rather than eliding, and the whole card lives inside a scroll area in the
-    dashboard so it can never fall below the window.
+    Anthropic API-key billing so the two are never confused. Installation and
+    authentication only prove that the provider is configured; ``OPERATIONAL``
+    is reserved for a completed reasoning request.
     """
 
     check_requested = Signal()
@@ -421,7 +424,7 @@ class ProviderStatusCard(RelicPanel):
         # sidebar wider than its column and clip the panel's right edge.
         actions = QVBoxLayout()
         actions.setSpacing(SPACING.sm)
-        self.check_button = SecondaryButton("Check provider")
+        self.check_button = SecondaryButton("Check Claude setup")
         self.check_button.clicked.connect(self.check_requested.emit)
         self.login_button = SecondaryButton("Open Claude login")
         self.login_button.clicked.connect(self.login_requested.emit)
@@ -455,7 +458,7 @@ class ProviderStatusCard(RelicPanel):
         self._rows["effort"].setText(mark(status.get("effort")))
 
         if status.get("ready"):
-            self.badge.set_status("ready", "READY")
+            self.badge.set_status("active", "CONFIGURED")
         elif not status.get("executable_found"):
             self.badge.set_status("blocked", "NOT INSTALLED")
         elif not status.get("logged_in"):
@@ -464,6 +467,17 @@ class ProviderStatusCard(RelicPanel):
             self.badge.set_status("warning", "API KEY")
         else:
             self.badge.set_status("warning", "UNCONFIRMED")
+
+    def set_runtime_status(self, status: str, label: str, message: str) -> None:
+        """Set the result of a real provider request.
+
+        This deliberately overrides the setup badge. A later setup check may
+        return the card to ``CONFIGURED``, but authentication alone can never
+        overwrite a visible request failure with ``READY``.
+        """
+
+        self.badge.set_status(status, label)
+        self.set_message(message, status)
 
     def set_message(self, text: str, status: str | None = None) -> None:
         """Show a sanitized provider message. Never hidden behind a dialog."""
@@ -707,11 +721,11 @@ class EmptyState(QWidget):
 
 
 class FindingsTable(QWidget):
-    """A filterable evidence table with content-aware column sizing.
+    """A filterable evidence table with a persistent full-detail inspector.
 
-    Columns stretch to fill the viewport, which removes the spurious
-    horizontal scrollbar the previous layout produced, while each column keeps
-    a readable minimum width.
+    The grid is an index, not the only way to recover a record. Columns retain
+    readable widths and technical grids may scroll horizontally; selecting a
+    row always exposes the complete structured record below the grid.
     """
 
     selection_changed = Signal(list)
@@ -768,15 +782,38 @@ class FindingsTable(QWidget):
 
         # Rows sized from the font, so text is never vertically cropped.
         row_height = control_height(
-            QFontMetrics(self.table.font()), padding=SPACING.xs
+            QFontMetrics(self.table.font()), padding=SPACING.md
         )
         self.table.verticalHeader().setDefaultSectionSize(row_height)
 
         self.table.selectionModel().selectionChanged.connect(self._selection_changed)
 
         self.empty = EmptyState(empty_title, empty_body)
-        layout.addWidget(self.table, 1)
-        layout.addWidget(self.empty, 1)
+        table_stack = QWidget()
+        stack_layout = QVBoxLayout(table_stack)
+        stack_layout.setContentsMargins(0, 0, 0, 0)
+        stack_layout.setSpacing(0)
+        stack_layout.addWidget(self.table)
+        stack_layout.addWidget(self.empty)
+
+        self.details = QPlainTextEdit()
+        self.details.setReadOnly(True)
+        self.details.setPlaceholderText(
+            "Select a row to view the complete, untruncated record."
+        )
+        self.details.setAccessibleName("Selected record details")
+        self.details.setMaximumBlockCount(5_000)
+        self.details.setMinimumHeight(
+            control_height(QFontMetrics(self.details.font()), lines=6, padding=SPACING.sm)
+        )
+
+        self.splitter = QSplitter(Qt.Orientation.Vertical)
+        self.splitter.setChildrenCollapsible(False)
+        self.splitter.addWidget(table_stack)
+        self.splitter.addWidget(self.details)
+        self.splitter.setStretchFactor(0, 4)
+        self.splitter.setStretchFactor(1, 2)
+        layout.addWidget(self.splitter, 1)
         self._show_empty(True)
 
     def _show_empty(self, empty: bool) -> None:
@@ -785,6 +822,7 @@ class FindingsTable(QWidget):
 
     def set_rows(self, rows: list[dict[str, object]]) -> None:
         self._rows = rows
+        self.details.clear()
         self._apply_filter(self.filter_field.text())
 
     def _apply_filter(self, text: str) -> None:
@@ -821,7 +859,15 @@ class FindingsTable(QWidget):
         return rows
 
     def _selection_changed(self) -> None:
-        self.selection_changed.emit(self.selected_rows())
+        rows = self.selected_rows()
+        if rows:
+            raw = rows[0].get("_raw", rows[0])
+            self.details.setPlainText(
+                json.dumps(raw, indent=2, sort_keys=True, default=str)
+            )
+        else:
+            self.details.clear()
+        self.selection_changed.emit(rows)
 
     def row_count(self) -> int:
         return self.model.rowCount()
@@ -866,9 +912,9 @@ class ElidedLabel(QLabel):
         self._apply_elide()
 
 
-#: Hard floor for a column. Narrower than this a cell shows nothing but an
-#: ellipsis, so a horizontal scrollbar becomes the more honest presentation.
-ABSOLUTE_MIN_SECTION = 44
+#: Hard floor for a column. Technical data is allowed to scroll horizontally
+#: rather than compress below this point.
+ABSOLUTE_MIN_SECTION = 72
 
 #: Where a table remembers its unshrunken column floor, so repeated fits at
 #: narrow widths cannot permanently ratchet it down.
@@ -883,77 +929,57 @@ def readable_min_section(table: QTableView) -> int:
     scrollbar.
     """
 
-    return max(48, QFontMetrics(table.font()).averageCharWidth() * 7)
+    return max(ABSOLUTE_MIN_SECTION, QFontMetrics(table.font()).averageCharWidth() * 11)
 
 
 def fit_table_columns(table: QTableView, column_count: int) -> None:
-    """Fit columns to the viewport in both directions.
+    """Size a technical table for reading rather than maximum column count.
 
-    Content is measured first, then columns are scaled up to consume slack or
-    scaled down to remove a horizontal scrollbar. Shrinking stops at a
-    readable floor; if even the floors do not fit, the scrollbar is legitimate
-    because the text genuinely cannot be shown otherwise.
+    Short fields keep content-aware widths, the most useful narrative field
+    consumes remaining space, and narrow viewports receive an honest
+    horizontal scrollbar. The old proportional fitter squeezed seven-column
+    records to roughly 44 pixels each, leaving only ellipses.
     """
 
     if column_count <= 0:
         return
     header = table.horizontalHeader()
-    table.resizeColumnsToContents()
-    available = max(0, table.viewport().width())
-    if available <= 0:
-        return
-    widths = [max(1, table.columnWidth(index)) for index in range(column_count)]
-    total = sum(widths)
-
-    # The floor adapts to how many columns share the pane. A fixed floor that
-    # many columns cannot collectively satisfy would abandon the fit and leave
-    # a permanent horizontal scrollbar; narrowing it lets every column show a
-    # few characters plus an ellipsis, with the full value on the tooltip.
-    # Derive the floor from the table's ORIGINAL readable width, not from the
-    # header's current value. Reading back the current value would ratchet:
-    # each narrow layout writes a smaller floor, and the columns would never
-    # widen again when the pane grows.
     base_min = table.property(_BASE_MIN_SECTION_PROPERTY)
     if not isinstance(base_min, int) or base_min <= 0:
         base_min = readable_min_section(table)
         table.setProperty(_BASE_MIN_SECTION_PROPERTY, base_min)
-    effective_min = max(
-        ABSOLUTE_MIN_SECTION, min(base_min, available // column_count)
-    )
-    header.setMinimumSectionSize(effective_min)
-    minimum = effective_min
-    if total == available:
-        return
-    if total > available and minimum * column_count > available:
-        return
+    header.setMinimumSectionSize(base_min)
+    for index in range(column_count):
+        header.setSectionResizeMode(index, QHeaderView.ResizeMode.Interactive)
+    table.resizeColumnsToContents()
 
-    # Water-filling: repeatedly pin any column whose proportional share would
-    # fall below the readable floor, then redistribute what is left. A single
-    # proportional pass leaves pinned columns over budget and overflows.
-    pinned: dict[int, int] = {}
-    while True:
-        free = [index for index in range(column_count) if index not in pinned]
-        if not free:
-            break
-        budget = available - sum(pinned.values())
-        free_total = sum(widths[index] for index in free) or 1
-        newly_pinned = False
-        for index in free:
-            if int(budget * widths[index] / free_total) < minimum:
-                pinned[index] = minimum
-                newly_pinned = True
-        if not newly_pinned:
-            assigned = 0
-            for position, index in enumerate(free):
-                if position == len(free) - 1:
-                    width = max(minimum, budget - assigned)
-                else:
-                    width = max(minimum, int(budget * widths[index] / free_total))
-                    assigned += width
-                pinned[index] = width
-            break
-    for index, width in pinned.items():
-        table.setColumnWidth(index, width)
+    model = table.model()
+    if hasattr(model, "sourceModel"):
+        model = model.sourceModel()
+    columns = getattr(model, "columns", [])
+    keys = [str(item[1]) for item in columns] if columns else []
+    narrative_priority = (
+        "summary",
+        "content",
+        "evidence",
+        "appraisal_reasons",
+        "paths",
+        "path",
+        "warnings",
+    )
+    narrative = next(
+        (keys.index(key) for key in narrative_priority if key in keys),
+        column_count - 1,
+    )
+
+    maximum_short = base_min * 3
+    for index in range(column_count):
+        if index == narrative:
+            continue
+        table.setColumnWidth(
+            index, max(base_min, min(table.columnWidth(index), maximum_short))
+        )
+    header.setSectionResizeMode(narrative, QHeaderView.ResizeMode.Stretch)
 
 
 def hairline(parent: QWidget | None = None) -> QFrame:

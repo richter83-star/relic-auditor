@@ -5,7 +5,14 @@ estates. It reads loose files, folders, and ZIP files, detects project types, ma
 finds byte-identical duplicates, and produces review candidates. It never imports,
 executes, installs, changes, or deletes scanned code.
 
-v0.10.0 adds the Product Builder Bridge. A Premium user can choose one
+v0.10.1 corrects the first installed-build usability findings: Claude setup is
+now distinct from successful runtime operation, timeouts replace optimistic
+status everywhere, the product shell keeps a visible five-step path, evidence
+tables preserve readable columns and expose a full-record inspector, and gated
+Build Pack actions explain why they are unavailable instead of disappearing.
+See [docs/v0.10.1-release-notes.md](docs/v0.10.1-release-notes.md).
+
+v0.10.0 added the Product Builder Bridge. A Premium user can choose one
 evidence-supported Opportunity, review a deterministic MVP plan, approve exact
 hash-verified reusable assets, and export a separate Build Pack with Codex,
 Claude Code, and generic render-only handoffs. The bridge never launches a

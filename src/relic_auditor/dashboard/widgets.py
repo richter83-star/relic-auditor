@@ -39,6 +39,7 @@ from .components import MetricCard as _ThemedMetricCard
 from .components import fit_table_columns as _fit_table_columns
 from .components import readable_min_section as _readable_min_section
 from .core import DashboardBundle, candidate_key
+from .theme import SPACING, control_height
 
 
 def public_record(value: Any) -> dict[str, Any]:
@@ -83,7 +84,7 @@ class RecordTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.ToolTipRole:
             # Columns elide when a value cannot fit; the full value must stay
             # recoverable rather than being silently truncated.
-            text = _display(value)
+            text = _full_display(value)
             return text if text else None
         if role == Qt.ItemDataRole.TextAlignmentRole and isinstance(value, (int, float)):
             return int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
@@ -175,6 +176,10 @@ class RecordTable(QWidget):
         header.setStretchLastSection(False)
         header.setMinimumSectionSize(_readable_min_section(self.table))
         header.setHighlightSections(False)
+        self.table.setHorizontalScrollMode(QTableView.ScrollMode.ScrollPerPixel)
+        self.table.verticalHeader().setDefaultSectionSize(
+            control_height(self.table.fontMetrics(), padding=SPACING.md)
+        )
         # The table must not impose a large minimum width on the workspace.
         self.table.setSizePolicy(
             QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Expanding
@@ -185,6 +190,9 @@ class RecordTable(QWidget):
         self.details.setReadOnly(True)
         self.details.setPlaceholderText("Select a row to inspect its evidence.")
         self.details.setMaximumBlockCount(5_000)
+        self.details.setMinimumHeight(
+            control_height(self.details.fontMetrics(), lines=6, padding=SPACING.sm)
+        )
 
         # A bare table with no rows reads as a broken panel. Swap in a stated
         # reason instead of leaving an unexplained blank grid.
@@ -206,6 +214,7 @@ class RecordTable(QWidget):
         self.set_empty_state(True)
 
         splitter = QSplitter(Qt.Orientation.Vertical)
+        splitter.setChildrenCollapsible(False)
         splitter.addWidget(table_stack)
         splitter.addWidget(self.details)
         splitter.setStretchFactor(0, 4)
@@ -721,10 +730,20 @@ def _display(value: Any) -> str:
     if isinstance(value, float):
         return f"{value:.2f}"
     if isinstance(value, (list, tuple, set)):
-        return ", ".join(str(item) for item in value)
+        items = list(value)
+        if items and all(isinstance(item, dict) for item in items):
+            return f"{len(items)} structured record{'s' if len(items) != 1 else ''}"
+        return ", ".join(str(item) for item in items)
     if isinstance(value, dict):
-        return json.dumps(value, sort_keys=True)
+        return f"{len(value)} structured field{'s' if len(value) != 1 else ''}"
     return str(value).replace("_", " ")
+
+
+def _full_display(value: Any) -> str:
+    if isinstance(value, (dict, list, tuple, set)):
+        normalized = list(value) if isinstance(value, set) else value
+        return json.dumps(normalized, indent=2, sort_keys=True, default=str)
+    return _display(value)
 
 
 def _sort_value(value: Any) -> tuple[int, Any]:

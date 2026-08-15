@@ -157,7 +157,9 @@ class RelicWindow(QMainWindow):
         self._scan_worker: ScanWorker | None = None
         self._close_when_done = False
         self._scan_started_at: float | None = None
-        self._provider_ready = False
+        self._provider_configured = False
+        self._workflow_step = 1
+        self._workflow_action_key = "choose-folder"
         documents = QStandardPaths.writableLocation(
             QStandardPaths.StandardLocation.DocumentsLocation
         )
@@ -297,6 +299,9 @@ class RelicWindow(QMainWindow):
         self.claude_model.setMinimumHeight(
             control_height(QFontMetrics(self.claude_model.font()))
         )
+        self.claude_model.currentIndexChanged.connect(
+            self._update_reasoning_speed_note
+        )
 
         self.claude_effort = QComboBox()
         for effort in SUPPORTED_EFFORTS:
@@ -305,6 +310,9 @@ class RelicWindow(QMainWindow):
         self.claude_effort.setAccessibleName("Reasoning effort")
         self.claude_effort.setMinimumHeight(
             control_height(QFontMetrics(self.claude_effort.font()))
+        )
+        self.claude_effort.currentIndexChanged.connect(
+            self._update_reasoning_speed_note
         )
 
         self.run_button = PrimaryButton("Run audit")
@@ -363,6 +371,8 @@ class RelicWindow(QMainWindow):
         layout.setContentsMargins(SPACING.xl, SPACING.lg, SPACING.xl, SPACING.xl)
         layout.setSpacing(SPACING.lg)
 
+        layout.addWidget(self._build_workflow_guide())
+
         self.primary_tabs = QTabWidget()
         self.primary_tabs.setDocumentMode(True)
         self.primary_tabs.addTab(self._build_scan_page(), "Scan")
@@ -370,6 +380,33 @@ class RelicWindow(QMainWindow):
         self.primary_tabs.addTab(self._build_reports_page(), "Reports")
         layout.addWidget(self.primary_tabs, 1)
         return shell
+
+    def _build_workflow_guide(self) -> QWidget:
+        panel = RelicPanel(
+            "Your next step",
+            "Relic keeps the recommended path visible; technical evidence stays optional.",
+            emphasis=True,
+        )
+        self.workflow_step_badge = StatusBadge("primary", "STEP 1 OF 5")
+        panel.add_header_widget(self.workflow_step_badge)
+        self.workflow_step_title = QLabel("Choose a folder")
+        self.workflow_step_title.setObjectName("panelTitle")
+        self.workflow_step_title.setWordWrap(True)
+        self.workflow_step_body = QLabel(
+            "Select the project, repository, archive collection, or loose files to appraise."
+        )
+        self.workflow_step_body.setObjectName("mutedLabel")
+        self.workflow_step_body.setWordWrap(True)
+        panel.add_widget(self.workflow_step_title)
+        panel.add_widget(self.workflow_step_body)
+        actions = QHBoxLayout()
+        actions.addStretch(1)
+        self.workflow_action_button = PrimaryButton("Choose folder")
+        self.workflow_action_button.setAccessibleName("Perform the recommended next step")
+        self.workflow_action_button.clicked.connect(self._run_workflow_action)
+        actions.addWidget(self.workflow_action_button)
+        panel.add_layout(actions)
+        return panel
 
     def _build_scan_page(self) -> QWidget:
         content = QWidget()
@@ -461,6 +498,11 @@ class RelicWindow(QMainWindow):
         self.results_technical_button.clicked.connect(self.open_technical_details)
         actions.addWidget(self.results_technical_button)
         results_layout.addLayout(actions)
+        self.prepare_product_note = QLabel("")
+        self.prepare_product_note.setObjectName("dimLabel")
+        self.prepare_product_note.setWordWrap(True)
+        self.prepare_product_note.setVisible(False)
+        results_layout.addWidget(self.prepare_product_note)
         results_layout.addStretch(1)
 
         results_scroll = QScrollArea()
@@ -604,6 +646,10 @@ class RelicWindow(QMainWindow):
         claude_grid.setColumnStretch(0, 1)
         claude_grid.setColumnStretch(1, 1)
         self.provider_row.addLayout(claude_grid)
+        self.reasoning_speed_note = QLabel("")
+        self.reasoning_speed_note.setObjectName("dimLabel")
+        self.reasoning_speed_note.setWordWrap(True)
+        self.provider_row.addWidget(self.reasoning_speed_note)
         config.add_layout(self.provider_row)
         column.addWidget(config)
 
@@ -644,6 +690,16 @@ class RelicWindow(QMainWindow):
         layout.setSpacing(SPACING.lg)
 
         layout.addWidget(self._build_metrics())
+
+        self.technical_guide = QLabel(
+            "Suggested order: Overview → Opportunities → Reusable Assets → "
+            "Recommended Actions. Use System Map, Technical Truth, Reasoning, "
+            "Duplicates, and Files when you need to verify the evidence."
+        )
+        self.technical_guide.setObjectName("mutedLabel")
+        self.technical_guide.setWordWrap(True)
+        self.technical_guide.setAccessibleName("Suggested technical review order")
+        layout.addWidget(self.technical_guide)
 
         self.overview = OverviewWidget()
         self.architecture = ArchitectureView()
@@ -724,13 +780,13 @@ class RelicWindow(QMainWindow):
         self.tabs.tabBar().setExpanding(False)
         self.tabs.tabBar().setUsesScrollButtons(True)
         self.tabs.addTab(self.overview, "Overview")
-        self.tabs.addTab(self.architecture, "System Map")
-        self.tabs.addTab(self.technical, "Technical Truth")
-        self.tabs.addTab(self.candidates, "Recommended Actions")
-        self.tabs.addTab(self.duplicates, "Duplicates")
         self.tabs.addTab(self.opportunities, "Opportunities")
         self.tabs.addTab(self.acquisition, "Reusable Assets")
+        self.tabs.addTab(self.candidates, "Recommended Actions")
+        self.tabs.addTab(self.architecture, "System Map")
+        self.tabs.addTab(self.technical, "Technical Truth")
         self.tabs.addTab(self.llm_reasoning, "Reasoning")
+        self.tabs.addTab(self.duplicates, "Duplicates")
         self.tabs.addTab(self.files, "Files")
         self.tabs.setSizePolicy(
             QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding
@@ -905,6 +961,58 @@ class RelicWindow(QMainWindow):
             "Local-first · Read-only target · No execution, move, or delete"
         )
 
+    def _set_workflow_step(
+        self,
+        step: int,
+        title: str,
+        body: str,
+        *,
+        action_key: str,
+        action_text: str,
+        action_enabled: bool = True,
+        status: str = "primary",
+    ) -> None:
+        self._workflow_step = step
+        self._workflow_action_key = action_key
+        self.workflow_step_badge.set_status(status, f"STEP {step} OF 5")
+        self.workflow_step_title.setText(title)
+        self.workflow_step_body.setText(body)
+        self.workflow_action_button.setText(action_text)
+        self.workflow_action_button.setEnabled(action_enabled)
+
+    @Slot()
+    def _run_workflow_action(self) -> None:
+        if self._workflow_action_key == "choose-folder":
+            self.target_selector.browse_button.click()
+        elif self._workflow_action_key == "run-audit":
+            self.start_scan()
+        elif self._workflow_action_key == "view-report":
+            self.view_full_report()
+        elif self._workflow_action_key == "prepare-product":
+            self.prepare_leading_product()
+        elif self._workflow_action_key == "open-reports":
+            self.primary_tabs.setCurrentIndex(2)
+
+    @Slot()
+    @Slot(int)
+    def _update_reasoning_speed_note(self, _index: int | None = None) -> None:
+        model = str(self.claude_model.currentData() or "sonnet")
+        effort = str(self.claude_effort.currentData() or DEFAULT_EFFORT)
+        if model == "opus" and effort == "high":
+            self.reasoning_speed_note.setText(
+                "Opus + high is the slowest option and can exceed the 90-second "
+                "advisory limit. Sonnet + medium is recommended for most audits."
+            )
+            self.reasoning_speed_note.setToolTip(
+                "A timeout affects advisory reasoning only; deterministic results remain complete."
+            )
+        else:
+            self.reasoning_speed_note.setText(
+                "Recommended starting point: Sonnet + medium. Advisory reasoning "
+                "is optional and never blocks deterministic results."
+            )
+            self.reasoning_speed_note.setToolTip("")
+
     def _claude_max_selected(self) -> bool:
         return self.llm_provider.currentData() == "claude-max"
 
@@ -926,6 +1034,7 @@ class RelicWindow(QMainWindow):
         self.provider_card.setVisible(True)
         self.provider_card.check_button.setEnabled(True)
         self.provider_card.login_button.setEnabled(True)
+        self._update_reasoning_speed_note()
 
     @Slot()
     def _refresh_provider(self, initial: bool = False) -> None:
@@ -934,19 +1043,19 @@ class RelicWindow(QMainWindow):
         except (ClaudeCodeError, OSError, ValueError) as exc:
             self.provider_card.set_message(str(exc), "failed")
             self.provider_badge.set_status("failed", "PROVIDER: ERROR")
-            self._provider_ready = False
+            self._provider_configured = False
             return
         status = dict(status)
         status["model"] = self.claude_model.currentData() or status.get("model")
         status["effort"] = self.claude_effort.currentData() or status.get("effort")
         self.provider_card.set_status(status)
-        self._provider_ready = bool(status.get("ready"))
+        self._provider_configured = bool(status.get("ready"))
         if status.get("ready"):
-            self.provider_badge.set_status("ready", "PROVIDER: READY")
+            self.provider_badge.set_status("active", "CLAUDE: CONFIGURED")
             self.provider_card.set_message(
-                "Claude Code will reason on your Claude.ai subscription session. "
-                "Usage stays subject to Anthropic plan limits.",
-                "ready",
+                "Claude Code is installed and the subscription session is signed in. "
+                "Operational status is confirmed only after a reasoning request succeeds.",
+                "active",
             )
         elif not status.get("executable_found"):
             self.provider_badge.set_status("idle", "PROVIDER: ABSENT")
@@ -980,6 +1089,7 @@ class RelicWindow(QMainWindow):
             code = launch_claude_login()
         except (ClaudeCodeError, OSError) as exc:
             self.provider_card.set_message(str(exc), "failed")
+            self.provider_badge.set_status("failed", "CLAUDE: LOGIN ERROR")
             return
         if code == 0:
             self.provider_card.set_message(
@@ -989,12 +1099,30 @@ class RelicWindow(QMainWindow):
             self.provider_card.set_message(
                 f"'claude auth login' exited with status {code}.", "failed"
             )
+            self.provider_badge.set_status("failed", "CLAUDE: LOGIN FAILED")
 
     # -- scanning ---------------------------------------------------------
 
     def _target_changed(self, text: str) -> None:
         if text.strip():
             self.status_message.setText(f"Ready to scan {Path(text.strip()).name}")
+            if self._scan_thread is None and self.bundle is None:
+                self._set_workflow_step(
+                    2,
+                    "Run the audit",
+                    "The recommended Product Resurrection scan is selected. "
+                    "Advisory reasoning is optional; Sonnet + medium is the safest starting point.",
+                    action_key="run-audit",
+                    action_text="Run audit",
+                )
+        elif self._scan_thread is None and self.bundle is None:
+            self._set_workflow_step(
+                1,
+                "Choose a folder",
+                "Select the project, repository, archive collection, or loose files to appraise.",
+                action_key="choose-folder",
+                action_text="Choose folder",
+            )
 
     @Slot()
     def start_scan(self) -> None:
@@ -1052,6 +1180,22 @@ class RelicWindow(QMainWindow):
         self.report_badge.set_status("idle", "NOT EXPORTED")
         self.report_label.setText("Reports have not been exported yet.")
         self._set_config_enabled(False)
+        self._set_workflow_step(
+            3,
+            "Audit in progress",
+            "Relic is reading and classifying the target. The target remains unchanged.",
+            action_key="scan-running",
+            action_text="Audit running",
+            action_enabled=False,
+            status="running",
+        )
+        if self.use_llm.isChecked() and self._claude_max_selected():
+            self.provider_badge.set_status("running", "CLAUDE: RUNNING")
+            self.provider_card.set_runtime_status(
+                "running",
+                "RUNNING",
+                "Claude advisory reasoning is running. Deterministic analysis continues independently.",
+            )
         self._scan_started_at = time.monotonic()
         self._elapsed_timer.start()
         self.scan_panel.set_running("Starting read-only audit…", 0)
@@ -1128,14 +1272,41 @@ class RelicWindow(QMainWindow):
         self.refresh_report_history()
         self.tabs.setCurrentWidget(self.overview)
         self.primary_tabs.setCurrentIndex(1)
+        can_open_report = self._full_report_path() is not None
+        self._set_workflow_step(
+            4,
+            "Review the answer",
+            "Start with the top opportunity and ‘What should happen next.’ "
+            "Open Technical details only when you need to verify evidence.",
+            action_key="view-report",
+            action_text="View full report" if can_open_report else "Report unavailable",
+            action_enabled=can_open_report,
+            status="active",
+        )
 
     @Slot(str)
     def _scan_failed(self, message: str) -> None:
         self._elapsed_timer.stop()
         if message == "__cancelled__":
             self.scan_panel.set_cancelled()
+            self._set_workflow_step(
+                2,
+                "Run the audit",
+                "The previous scan was cancelled. Adjust the settings or run it again.",
+                action_key="run-audit",
+                action_text="Run audit",
+                status="warning",
+            )
             return
         self.scan_panel.set_failed(f"Audit failed: {message}")
+        self._set_workflow_step(
+            2,
+            "Fix the scan error and retry",
+            message,
+            action_key="run-audit",
+            action_text="Retry audit",
+            status="failed",
+        )
         QMessageBox.critical(self, "Relic audit failed", message)
 
     @Slot()
@@ -1177,10 +1348,37 @@ class RelicWindow(QMainWindow):
                 reasoning_rows.append(
                     {"section": "Provider error", "content": bundle.llm_reasoning.error}
                 )
-                # A provider failure is surfaced in the console, not buried.
-                self.provider_card.set_message(
-                    f"Advisory reasoning unavailable: {bundle.llm_reasoning.error}",
-                    "warning",
+                # Setup availability and request success are separate states.
+                # A real request failure must override every optimistic setup
+                # badge so the interface never says READY after a timeout.
+                error = bundle.llm_reasoning.error
+                timed_out = "timed out" in error.casefold()
+                label = "TIMED OUT" if timed_out else "FAILED"
+                provider_name = (
+                    "CLAUDE"
+                    if bundle.llm_reasoning.protocol == "claude-code"
+                    else "PROVIDER"
+                )
+                self.provider_badge.set_status("failed", f"{provider_name}: {label}")
+                self.provider_card.set_runtime_status(
+                    "failed",
+                    label,
+                    f"Advisory reasoning unavailable: {error}. "
+                    "Deterministic audit results and saved reports remain complete.",
+                )
+            elif bundle.llm_reasoning.status == "complete":
+                provider_name = (
+                    "CLAUDE"
+                    if bundle.llm_reasoning.protocol == "claude-code"
+                    else "PROVIDER"
+                )
+                self.provider_badge.set_status(
+                    "ready", f"{provider_name}: OPERATIONAL"
+                )
+                self.provider_card.set_runtime_status(
+                    "ready",
+                    "OPERATIONAL",
+                    "Claude advisory reasoning completed successfully for this audit.",
                 )
         self.llm_reasoning.set_rows([{**item, "_raw": item} for item in reasoning_rows])
         self.files.set_rows(
@@ -1248,13 +1446,30 @@ class RelicWindow(QMainWindow):
                 f"Effort: {opportunity.get('extraction_effort', 'unknown')}"
             )
             card.setVisible(True)
-        eligible = bool(
-            opportunities
+        has_opportunity = bool(opportunities)
+        evidence_ready = bool(
+            has_opportunity
             and opportunities[0].get("build_pack_readiness") == "eligible"
-            and bundle.entitlement.allows(ProductCapability.BUILD_PACK_PREVIEW)
         )
-        self.prepare_product_button.setVisible(eligible)
+        entitled = bundle.entitlement.allows(ProductCapability.BUILD_PACK_PREVIEW)
+        eligible = evidence_ready and entitled
+        self.prepare_product_button.setVisible(has_opportunity)
         self.prepare_product_button.setEnabled(eligible)
+        self.prepare_product_note.setVisible(has_opportunity and not eligible)
+        if has_opportunity and not evidence_ready:
+            note = (
+                "Build Pack unavailable: the leading opportunity needs stronger "
+                "evidence before Relic can prepare it safely."
+            )
+        elif has_opportunity and not entitled:
+            note = (
+                f"Build Pack requires Premium; this installation is using the "
+                f"{bundle.entitlement.tier.value.title()} entitlement. Reports remain available."
+            )
+        else:
+            note = ""
+        self.prepare_product_note.setText(note)
+        self.prepare_product_button.setToolTip(note)
 
     @Slot()
     def prepare_leading_product(self) -> None:
@@ -1275,6 +1490,14 @@ class RelicWindow(QMainWindow):
             )
             output = (self.report_directory or self.reports_root) / "Build Packs"
             dialog = BuildPackDialog(service, pack, output, self)
+            self._set_workflow_step(
+                5,
+                "Prepare or export the outcome",
+                "Review the Build Pack, approve exact assets, then export a builder handoff.",
+                action_key="prepare-product",
+                action_text="Continue preparing product",
+                status="active",
+            )
             dialog.exec()
         except (PermissionError, ValueError, OSError) as exc:
             QMessageBox.warning(self, "Prepare this product", str(exc))
@@ -1327,6 +1550,15 @@ class RelicWindow(QMainWindow):
         report = self._full_report_path()
         if report is not None:
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(report)))
+            self._set_workflow_step(
+                5,
+                "Choose the outcome",
+                "Use Reports to reopen this audit, export another copy, or prepare "
+                "an eligible product when Premium is available.",
+                action_key="open-reports",
+                action_text="Open saved reports",
+                status="active",
+            )
 
     @Slot()
     def refresh_report_history(self) -> None:

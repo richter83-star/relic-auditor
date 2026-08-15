@@ -6,7 +6,7 @@ import zipfile
 from pathlib import Path
 
 
-VERSION = "0.10.0"
+VERSION = "0.10.1"
 EXCLUDED_PARTS = {
     ".git",
     ".mypy_cache",
@@ -16,6 +16,7 @@ EXCLUDED_PARTS = {
     ".uv-cache",
     ".venv",
     "__pycache__",
+    "artifacts",
     "build",
     "dist",
     "releases",

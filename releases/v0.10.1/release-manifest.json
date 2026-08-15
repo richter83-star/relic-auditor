@@ -1,0 +1,36 @@
+{
+  "artifacts": [
+    {
+      "file": "relic-auditor-0.10.1.zip",
+      "sha256": "d0e67e54a7315d5c2dd89746353868d5da10f37275a7f8e109554d99abca34e0",
+      "size_bytes": 251312,
+      "type": "frozen-source"
+    },
+    {
+      "file": "relic_auditor-0.10.1-py3-none-any.whl",
+      "sha256": "a348d873235fa37e7b8e55ce77ed643bd47a8f58d68be7af5504b2a5bebe24a1",
+      "size_bytes": 172358,
+      "type": "wheel"
+    },
+    {
+      "file": "relic_auditor-0.10.1.tar.gz",
+      "sha256": "29a51e2bb2215368a332094ef3bf25edef8bf4ec1b81053ba76eeb55f58717df",
+      "size_bytes": 199012,
+      "type": "sdist"
+    }
+  ],
+  "installer": {
+    "native_validation": "pending-windows-workflow",
+    "source_sha256_pinned": true,
+    "status": "prepared-not-built"
+  },
+  "product": "Relic Auditor",
+  "release_status": "branch-rc-no-tag-no-release",
+  "tests": {
+    "compileall": "passed",
+    "qt_and_repository_suite": "pending-windows-workflow",
+    "source_cli_smoke": "passed",
+    "wheel_cli_smoke": "passed"
+  },
+  "version": "0.10.1"
+}
