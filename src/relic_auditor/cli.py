@@ -30,6 +30,12 @@ from .product_discovery import DiscoveryConfig, discover_products
 from .product_discovery.reports import write_product_reports
 from .technical_truth import TechnicalTruthConfig, analyze_technical_truth
 from .technical_truth.reports import write_technical_truth_reports
+from .resurrection import (
+    ResurrectionConfig,
+    format_resurrection_console,
+    resurrect_estate,
+    write_resurrection_reports,
+)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -58,6 +64,9 @@ def build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--reasoning-provider", choices=["none", "local", "configured_external"], default="none")
     _add_llm_reasoning_args(audit)
     audit.add_argument("--max-opportunities", type=int, default=6)
+    audit.add_argument("--resurrection", action="store_true", help="run Resurrection Mode to extract salvageable product subgraphs or emit a forced toss-it verdict")
+    audit.add_argument("--resurrection-min-nodes", type=int, default=3)
+    audit.add_argument("--resurrection-min-anchors", type=int, default=1)
     audit.add_argument("--technical-truth", action="store_true", help="run deterministic static technical verification")
     audit.add_argument("--no-technical-truth", action="store_true", help="disable automatic technical verification for product discovery")
     audit.add_argument("--technical-max-file-mb", type=int, default=2)
@@ -85,6 +94,24 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="N",
         help="reject ZIPs with more members (default: 20000)",
     )
+    resurrect = commands.add_parser(
+        "resurrect",
+        help="extract deterministic substantive subgraphs and generate a salvageable product plan or forced 'toss it' verdict",
+    )
+    resurrect.add_argument("target", type=Path, help="file, folder, or ZIP archive to inspect")
+    resurrect.add_argument("-o", "--output", type=Path, help="report directory")
+    resurrect.add_argument("--include-hidden", action="store_true")
+    resurrect.add_argument("--min-nodes", type=int, default=3, help="minimum connected substantive symbols (default: 3)")
+    resurrect.add_argument("--min-anchors", type=int, default=1, help="minimum surface anchors (default: 1)")
+    resurrect.add_argument("--max-file-mb", type=int, default=10, metavar="MB")
+    resurrect.add_argument("--max-zip-members", type=int, default=20_000, metavar="N")
+    resurrect.add_argument("--technical-max-file-mb", type=int, default=2)
+    resurrect.add_argument("--max-graph-nodes", type=int, default=100_000)
+    resurrect.add_argument("--workflow-depth", type=int, default=12)
+    resurrect.add_argument("--max-data-flow-edges", type=int, default=50_000)
+    resurrect.add_argument("--no-technical-cache", action="store_true")
+    resurrect.add_argument("--technical-cache", type=Path)
+    _add_llm_reasoning_args(resurrect)
     acquire = commands.add_parser(
         "acquire",
         help="run deterministic Capability Acquisition Mode on a file, folder, or ZIP",
@@ -239,6 +266,64 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         return 0
 
+    if args.command == "resurrect":
+        if args.max_file_mb <= 0 or args.max_zip_members <= 0 or args.min_nodes <= 0 or args.min_anchors < 0:
+            parser.error("scan limits must be positive")
+        target = args.target.expanduser().resolve()
+        output = (
+            args.output or target.parent / f"{target.name}-relic-resurrection"
+        ).expanduser().resolve()
+        try:
+            if target == output or (target.is_dir() and output.is_relative_to(target)):
+                raise ValueError(
+                    "output must be outside the target so the scanned estate remains read-only"
+                )
+            audit_result = audit_estate(
+                target,
+                limits=ScanLimits(
+                    max_file_bytes=args.max_file_mb * 1024 * 1024,
+                    max_zip_members=args.max_zip_members,
+                ),
+                include_hidden=args.include_hidden,
+            )
+            truth_result = analyze_technical_truth(
+                audit_result,
+                TechnicalTruthConfig(
+                    max_file_size=args.technical_max_file_mb * 1024 * 1024,
+                    max_graph_nodes=args.max_graph_nodes,
+                    workflow_depth=args.workflow_depth,
+                    cache_path=str((args.technical_cache or output / ".relic-cache" / "technical-truth.json").resolve()),
+                    use_persistent_cache=not args.no_technical_cache,
+                    max_data_flow_edges=args.max_data_flow_edges,
+                ),
+            )
+            resurrection_result = resurrect_estate(
+                audit_result,
+                truth_result,
+                ResurrectionConfig(
+                    min_subgraph_nodes=args.min_nodes,
+                    min_surface_anchors=args.min_anchors,
+                    llm_profile=args.llm_profile,
+                    offline=not bool(args.llm_profile),
+                ),
+            )
+            written = list(write_resurrection_reports(resurrection_result, output).values())
+        except (
+            FileNotFoundError,
+            NotADirectoryError,
+            PermissionError,
+            KeyError,
+            RuntimeError,
+            ValueError,
+            OSError,
+        ) as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        print(format_resurrection_console(resurrection_result))
+        for p in written:
+            print(p)
+        return 0
+
     if args.command == "acquire":
         if args.max_file_mb <= 0 or args.max_zip_members <= 0 or args.max_candidates <= 0:
             parser.error("scan limits must be positive")
@@ -331,7 +416,7 @@ def main(argv: list[str] | None = None) -> int:
             )
             written.extend(write_llm_reports(llm_result, output))
         truth = None
-        run_truth = args.technical_truth or (args.product_discovery and not args.no_technical_truth)
+        run_truth = args.technical_truth or args.resurrection or (args.product_discovery and not args.no_technical_truth)
         if run_truth:
             truth = analyze_technical_truth(
                 result,
@@ -345,6 +430,19 @@ def main(argv: list[str] | None = None) -> int:
                 ),
             )
             written.extend(write_technical_truth_reports(truth, output))
+        if args.resurrection and truth is not None:
+            res_result = resurrect_estate(
+                result,
+                truth,
+                ResurrectionConfig(
+                    min_subgraph_nodes=args.resurrection_min_nodes,
+                    min_surface_anchors=args.resurrection_min_anchors,
+                    llm_profile=args.llm_profile,
+                    offline=not bool(args.llm_profile),
+                ),
+            )
+            written.extend(write_resurrection_reports(res_result, output).values())
+            print(format_resurrection_console(res_result))
         if args.product_discovery:
             discovery = discover_products(
                 result,

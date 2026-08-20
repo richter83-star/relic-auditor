@@ -478,6 +478,69 @@ class TechnicalTruthTests(unittest.TestCase):
                 ),
             )
 
+    def test_46_bare_not_implemented_stub_detection(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "service.py").write_text(
+                (
+                    "def process_data(item):\n"
+                    "    raise NotImplementedError\n"
+                    "def execute_task(task):\n"
+                    "    raise NotImplementedError()\n"
+                ),
+                encoding="utf-8",
+            )
+            result = analyze_technical_truth(audit_estate(root))
+            symbols = {s["name"]: s for s in result.symbols}
+            self.assertTrue(symbols["process_data"]["stub"], "Bare 'raise NotImplementedError' must be detected as stub")
+            self.assertTrue(symbols["execute_task"]["stub"], "'raise NotImplementedError()' must be detected as stub")
+
+    def test_47_nextjs_route_path_resolution(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            app_dir = root / "app" / "api" / "users"
+            app_dir.mkdir(parents=True)
+            (app_dir / "route.ts").write_text(
+                "export async function GET(request) { return Response.json({ users: [] }); }\n",
+                encoding="utf-8",
+            )
+            result = analyze_technical_truth(audit_estate(root))
+            endpoints = result.surfaces.get("endpoints", [])
+            self.assertEqual(len(endpoints), 1)
+            self.assertEqual(endpoints[0]["route"], "/api/users")
+            self.assertEqual(endpoints[0]["method"], "GET")
+
+    def test_48_positional_argument_mapping(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            (root / "main.py").write_text(
+                (
+                    "def run(recipient, amount):\n"
+                    "    return transfer(recipient, amount)\n"
+                    "def transfer(target_user, transfer_amount):\n"
+                    "    return {'target': target_user, 'amount': transfer_amount}\n"
+                ),
+                encoding="utf-8",
+            )
+            result = analyze_technical_truth(audit_estate(root))
+            data_flow = [e for e in result.graph["edges"] if e["type"] == "passes_data"]
+            self.assertTrue(len(data_flow) > 0)
+            mapping = data_flow[0].get("mapping", [])
+            self.assertEqual(mapping[0]["argument"], "recipient")
+            self.assertEqual(mapping[0]["parameter"], "target_user")
+            self.assertEqual(mapping[1]["argument"], "amount")
+            self.assertEqual(mapping[1]["parameter"], "transfer_amount")
+
+    def test_49_route_match_boundary_precision(self):
+        from relic_auditor.technical_truth.analyzer import _route_match
+        self.assertTrue(_route_match("/api/users", "/api/users"))
+        self.assertTrue(_route_match("/users", "/api/users"))
+        self.assertTrue(_route_match("/api/users", "/users"))
+        self.assertFalse(_route_match("/users", "/api/superusers"))
+        self.assertFalse(_route_match("", "/api/users"))
+        self.assertFalse(_route_match("/", "/api/users"))
+        self.assertTrue(_route_match("/", "/"))
+
 
 if __name__ == "__main__":
     unittest.main()

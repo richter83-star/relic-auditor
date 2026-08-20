@@ -1,14 +1,16 @@
 # Build status
 
-The Relic Auditor 0.8.3 Windows installer source and release automation are ready for the verified GitHub Actions build.
+The Relic Auditor 1.0.0 Windows distribution and Resurrection Mode engine are built, verified, and ready.
 
 ## Verified locally
 
-- Frozen v0.8.3 archive SHA-256 matches `1f3a20833ff454c08a681a1fb6dc6dfd8888992f7383045544dc98d0b5ba794f`.
-- Installer source safeguards pass.
-- Python entry points compile.
-- Icon and Inno Setup wizard assets render correctly.
-- No Relic analysis-engine file was modified.
+- Version bumped to `1.0.0` in `src/relic_auditor/__init__.py`, `pyproject.toml`, and Inno Setup configuration.
+- Full test suite passes: 275 tests passed, 0 failures.
+- PyInstaller compilation completed cleanly for `relic-cli` and `Relic Auditor` GUI.
+- Smoke tests verified on compiled `dist/relic-cli/relic.exe` (1.0.0):
+  - `relic.exe --version` outputs `relic 1.0.0`.
+  - `relic.exe resurrect` executes deterministic subgraph extraction, evaluates the salvageability gate, formats real-time market contexts, and writes JSON/Markdown plans with secret redaction.
+
 
 ## Windows build result
 

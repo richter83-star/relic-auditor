@@ -115,7 +115,7 @@ def _python(path: str, text: str, family_id: str) -> dict[str, Any]:
         if isinstance(node, ast.Call):
             target = _name(node.func)
             owner = _python_owner(node, parents)
-            refs.append({"kind": "calls", "source_file": path, "target_name": target, "line": node.lineno, "caller_name": owner.name if owner else None, "argument_names": sorted({_name(arg) for arg in node.args if _name(arg)}), "string_arguments": [arg.value for arg in node.args if isinstance(arg, ast.Constant) and isinstance(arg.value, str)], "confidence": 0.94, "method": "python_ast"})
+            refs.append({"kind": "calls", "source_file": path, "target_name": target, "line": node.lineno, "caller_name": owner.name if owner else None, "argument_names": [_name(arg) for arg in node.args if _name(arg)], "string_arguments": [arg.value for arg in node.args if isinstance(arg, ast.Constant) and isinstance(arg.value, str)], "confidence": 0.94, "method": "python_ast"})
             if target in {"subprocess.run", "subprocess.call", "os.system", "eval", "exec", "pickle.loads"}:
                 risks.append({"path": path, "line": node.lineno, "indicator": target, "severity": "review", "note": "Static structural risk indicator; not executed or dynamically validated."})
         if isinstance(node, ast.Subscript) and _name(node.value) in {"os.environ", "environ"}:
@@ -178,8 +178,10 @@ def _python_stub(node):
         item = meaningful[0]
         if isinstance(item, ast.Pass):
             return True
-        if isinstance(item, ast.Raise) and isinstance(item.exc, ast.Call) and _name(item.exc.func) in {"NotImplementedError", "Exception"}:
-            return True
+        if isinstance(item, ast.Raise):
+            exc_name = _name(item.exc.func) if isinstance(item.exc, ast.Call) else _name(item.exc)
+            if exc_name in {"NotImplementedError", "Exception"}:
+                return True
         if isinstance(item, ast.Return) and isinstance(item.value, ast.Constant) and item.value.value in {None, False, True}:
             return True
     return False
