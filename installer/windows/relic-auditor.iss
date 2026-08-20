@@ -49,8 +49,8 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 Name: "addtopath"; Description: "Add the Relic command-line tool to my PATH"; GroupDescription: "Command line:"; Flags: checkedonce
 
 [Files]
-Source: "{#BuildRoot}\pyinstaller-dist\Relic Auditor\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#BuildRoot}\pyinstaller-dist\relic-cli\*"; DestDir: "{app}\cli"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#BuildRoot}\Relic Auditor\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#BuildRoot}\relic-cli\*"; DestDir: "{app}\cli"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{group}\Relic Auditor"; Filename: "{app}\Relic Auditor.exe"; WorkingDir: "{app}"
