@@ -4,7 +4,7 @@ Relic Auditor is a local-first software-estate appraisal and controlled build-pr
 
 The core safety rule has not changed: **Relic does not import, install, execute, modify, move, rename, or delete scanned target code.** Scanned repositories are evidence, not execution environments.
 
-## Current release candidate: v1.0.1
+## Current release: v1.0.1
 
 v1.0.1 reunifies the validated v0.12 production-foundation line with the later Resurrection and Technical Truth work that had accidentally developed on a disconnected Git history.
 
@@ -27,7 +27,7 @@ relic resurrect /path/to/estate --output /path/to/resurrection-report
 
 Resurrection evaluates whether a partially built codebase contains a substantive, connected product core worth salvaging. Its deterministic evidence gate can force `TOSS_IT`; optional LLM reasoning may interpret the bounded evidence but cannot override missing evidence or invent source paths. Market context is currently **offline heuristic context**, not live market research.
 
-The reconciliation history and validation rules are documented in [docs/v1.0.1-reconciliation.md](docs/v1.0.1-reconciliation.md). Release-candidate changes are summarized in [docs/v1.0.1-release-notes.md](docs/v1.0.1-release-notes.md), with upgrade guidance in [docs/v1.0.1-upgrade.md](docs/v1.0.1-upgrade.md).
+The reconciliation history and validation rules are documented in [docs/v1.0.1-reconciliation.md](docs/v1.0.1-reconciliation.md). Release changes are summarized in [docs/v1.0.1-release-notes.md](docs/v1.0.1-release-notes.md), with upgrade guidance in [docs/v1.0.1-upgrade.md](docs/v1.0.1-upgrade.md). The public release is available at [GitHub Release v1.0.1](https://github.com/richter83-star/relic-auditor/releases/tag/v1.0.1).
 
 ## Product flow
 
@@ -66,7 +66,7 @@ python -m pip install -e ".[all]"
 
 On Windows PowerShell, keep the quotes around the extras.
 
-The Windows RC bundles Python and does not require a separate Python installation on the target machine.
+The Windows installer bundles Python and does not require a separate Python installation on the target machine.
 
 ## Core CLI
 
@@ -101,7 +101,7 @@ Run the v1.0.1 salvageability / Resurrection analysis:
 relic resurrect /path/to/estate --output /path/to/resurrection-report
 ```
 
-The standalone `relic resurrect` command is the supported v1.0.1 RC interface. `audit --resurrection` is not part of the current compatibility contract.
+The standalone `relic resurrect` command is the supported v1.0.1 interface. `audit --resurrection` is not part of the current compatibility contract.
 
 ## Technical Truth
 
@@ -208,7 +208,7 @@ Packaged Windows builds use a fail-closed update path. A candidate update must p
 2. declared filename, size, and SHA-256 verification; and
 3. a valid Authenticode signature from the pinned publisher trust policy.
 
-An unsigned installer may be used as an internal RC test artifact, but it is **not eligible for automatic updater installation**. Production signing and a trusted stable manifest remain release-publication gates.
+The public v1.0.1 Windows installer is unsigned and therefore **not eligible for automatic updater installation**. Production signing and a trusted stable manifest remain automatic-update gates; manual installation is the supported v1.0.1 path.
 
 See [docs/updater.md](docs/updater.md).
 
@@ -228,4 +228,4 @@ python -m pytest -q --ignore=tests/fixtures
 
 The Windows release workflow additionally freezes the exact commit, hashes the source archive, reruns source tests from the frozen archive, builds both GUI and CLI executables, performs bundled and installed smoke tests, exercises clean install and in-place upgrade, verifies stale-runtime cleanup and config preservation, then verifies uninstall and PATH cleanup.
 
-Current release-candidate evidence is recorded in [BUILD-STATUS.md](BUILD-STATUS.md). A green RC does not itself authorize a tag, GitHub Release, package-index upload, installer publication, or default-branch replacement.
+Release and publication evidence is recorded in [BUILD-STATUS.md](BUILD-STATUS.md) and [releases/v1.0.1/PUBLICATION.json](releases/v1.0.1/PUBLICATION.json). The `v1.0.1` tag and GitHub Release are tied to the exact validated release commit. The unsigned public installer remains manual-install only; the automatic updater stays fail-closed until trusted signing and stable-manifest infrastructure are provisioned.
