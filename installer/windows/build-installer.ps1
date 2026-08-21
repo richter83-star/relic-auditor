@@ -147,7 +147,8 @@ if (-not (Test-Path -LiteralPath (Join-Path $SourceRoot "pyproject.toml") -PathT
     throw "The canonical source root was not found after extraction."
 }
 $ProjectMetadata = Get-Content -LiteralPath (Join-Path $SourceRoot "pyproject.toml") -Raw
-if ($ProjectMetadata -notmatch '(?m)^version = "1[.]0[.]1"$') {
+$ProjectVersionLines = $ProjectMetadata -split '\r?\n'
+if ($ProjectVersionLines -notcontains 'version = "1.0.1"') {
     throw "The source archive does not identify itself as Relic Auditor 1.0.1."
 }
 

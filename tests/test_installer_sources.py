@@ -56,7 +56,9 @@ def test_clean_install_and_uninstall_are_release_gates() -> None:
         encoding="utf-8"
     )
     assert "ExpectedSourceSha256 is required" in build
-    assert 'version = "1[.]0[.]1"' in build
+    assert "ProjectVersionLines" in build
+    assert "-split '\\r?\\n'" in build
+    assert 'version = "1.0.1"' in build
     assert "relic-auditor-1.0.1.zip" in build
     assert "Relic Auditor 1.0.1" in dashboard
     assert "relic_auditor.entrypoint" in cli_entrypoint
