@@ -29,6 +29,10 @@ Resurrection evaluates whether a partially built codebase contains a substantive
 
 The reconciliation history and validation rules are documented in [docs/v1.0.1-reconciliation.md](docs/v1.0.1-reconciliation.md). Release changes are summarized in [docs/v1.0.1-release-notes.md](docs/v1.0.1-release-notes.md), with upgrade guidance in [docs/v1.0.1-upgrade.md](docs/v1.0.1-upgrade.md). The public release is available at [GitHub Release v1.0.1](https://github.com/richter83-star/relic-auditor/releases/tag/v1.0.1).
 
+## Code signing policy
+
+Relic Auditor's Windows signing governance is documented in [docs/code-signing-policy.md](docs/code-signing-policy.md). The public v1.0.1 installer remains unsigned and manual-install only. The preferred future route is SignPath Foundation's open-source signing program, subject to provider approval; automatic updating remains fail-closed until trusted signing and stable-manifest requirements are satisfied.
+
 ## Product flow
 
 The desktop experience uses progressive disclosure:
