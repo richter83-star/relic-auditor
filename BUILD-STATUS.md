@@ -1,32 +1,23 @@
 # Build status
 
-Relic Auditor v1.0.1 is the unified release-candidate line built from the validated v0.12 production foundation plus selectively ported Resurrection and Technical Truth corrections.
+Relic Auditor v1.0.1 is the current public release. The repository's authoritative `main` line is the reconciled history containing the validated v0.12 production foundation plus the selectively ported Resurrection and Technical Truth work.
 
-This file describes engineering readiness only. It is not a publication, signing, tag, or default-branch claim.
+## Authoritative repository state
 
-## Unified architecture
+- authoritative `main` cutover commit: `f78204b93c9b3279df14ea830dccf4247b29b44a`
+- preserved disconnected historical line: `archive/disconnected-main-v1.0.0` at `ee216fab38d4560acfdc6d2c9709a0635842f4df`
+- public release tag: `v1.0.1`
+- tag target / canonical release commit: `300d4efeb6747671ade474e51fed8e45b229c757`
+- canonical release tree: `05a2e8efc3aac86760f00cbdfbee4d6cf84c350c`
+- public release: https://github.com/richter83-star/relic-auditor/releases/tag/v1.0.1
 
-The v1.0.1 line contains and preserves:
+The cutover commit intentionally connects the previously disconnected histories while retaining the exact canonical v1.0.1 release tree. The tag remains on the exact commit whose source and Windows artifacts were validated.
 
-- deterministic static estate scanning and Technical Truth
-- Reusable Assets / Capability Acquisition analysis
-- Product Opportunity analysis
-- deterministic Build Packs and evidence/provenance controls
-- entitlement and OS credential-vault boundaries
-- approval-gated Assisted Build Supervisor/runtime
-- checkpoint restoration and cancellation controls
-- updater and pinned trust-root infrastructure
-- optional bounded LLM reasoning and runtime health truth
-- standalone `relic resurrect` salvageability analysis
-- Windows desktop, CLI, installer, upgrade, cleanup, and uninstall machinery
+## Release validation
 
-The scanned target remains read-only. Build execution, where eligible, operates only through separately approved and confined managed-workspace paths.
+Canonical GitHub Actions run `32453647140` completed successfully on Windows Server 2025 / Python 3.12.
 
-## Verified reconciliation evidence
-
-The pre-documentation v1.0.1 RC code head `f36791ac1df3e0f8e2068f883bb8907d2dc2bdf0` passed GitHub Actions run `32453060126` on Windows Server 2025 / Python 3.12.
-
-That run verified:
+It verified:
 
 - complete source test suite
 - unified CLI smoke
@@ -45,36 +36,37 @@ That run verified:
 - stale GUI and CLI runtime cleanup
 - upgraded CLI version
 - silent uninstall
-- user configuration preservation after uninstall
+- configuration preservation after uninstall
 - CLI PATH cleanup after uninstall
 - release manifest and checksum generation
-- workflow artifact upload
+- artifact upload
 
-For that exact commit, the workflow recorded:
+## Canonical v1.0.1 artifacts
 
-- frozen source SHA-256: `2974e6f2c3b8485278327a23536d2b946435ab55d929d6bcc31d20c1c88a5479`
+- Actions artifact ID: `9436635474`
+- Actions artifact ZIP SHA-256: `267b3d59e7ec54391bf2a475e2a1c66f04046bd0be4842c9e07328594469083e`
+- frozen source SHA-256: `800e3bd250b81475542c150bcd89d537ad46dc26f8840a18ea071f500770af1b`
 - installer: `Relic-Auditor-Setup-1.0.1-x64.exe`
-- installer SHA-256: `51223411a5de103ff9d2e5df1c746cefe85f7997cd9355c9ccfd68e217ceafe0`
-- installer size: `73,927,403` bytes
+- installer SHA-256: `56c3e20c9cdcf8e2a6beae76b0e05d928e1af0002e92240c83d1ace773069d10`
+- installer size: `73,928,624` bytes
 - Authenticode: `NotSigned`
-- uploaded RC artifact ID: `9436396583`
-- uploaded RC artifact size: `79,412,406` bytes
-- uploaded artifact ZIP SHA-256: `62f825e651243d1b213842117f74a53cd79be1344c44435ee26d94d86f7e1ab2`
 
-The workflow artifact contains `release-manifest.json`, `SHA256SUMS.txt`, the exact frozen source ZIP, installer README, and installer executable. The release manifest is authoritative for the artifact it accompanies.
+The GitHub Release contains the installer, frozen source ZIP, release manifest, SHA256SUMS, and installer README. The immutable publication record is stored in `releases/v1.0.1/PUBLICATION.json`.
 
-## After documentation changes
+## Security and update status
 
-Any commit after the verified head changes the frozen source archive, even when the code is unchanged. Therefore the exact-head Windows RC workflow must be green again before that later commit can be treated as the final release source. Do not reuse the hashes above for a different commit.
+The public v1.0.1 Windows installer is unsigned. Windows may therefore show an unknown-publisher warning. The automatic updater remains disabled and fail-closed for this release because the pinned Authenticode requirement is not satisfied.
 
-## Remaining publication gates
+Automatic updates must not be enabled until all of the following are provisioned and validated:
 
-Engineering validation is not the same thing as public release authorization. The remaining gates are:
+1. a trusted production Authenticode certificate;
+2. Actions signing credentials for the production certificate;
+3. a newly built and lifecycle-tested signed installer;
+4. a signed stable update manifest using the pinned update trust root; and
+5. permanent stable-manifest and installer hosting.
 
-1. green exact-head RC validation after the final documentation commit;
-2. explicit decision on how the disconnected default `main` history will be reconciled;
-3. repository branch protection / required checks on the authoritative line;
-4. production Authenticode signing and trusted stable-update manifest if automatic updating is to be enabled;
-5. explicit authorization before any merge to `main`, default-branch change, tag, GitHub Release, package-index upload, or public installer publication.
+## Repository governance still external
 
-Until signing is provisioned, the updater correctly refuses automatic installation of the unsigned RC.
+The connected GitHub automation does not expose repository ruleset / branch-protection administration. `main` should be protected in GitHub repository settings with required pull requests, required `source-validation` and `windows-installer-rc` checks, conversation resolution, and force-push / deletion blocking.
+
+The durable `.github/workflows/reconcile-v1.yml` workflow validates pull requests targeting `main` and source changes pushed to `main`; its historical filename is retained to avoid an unnecessary workflow-file rename during the post-release record update.
