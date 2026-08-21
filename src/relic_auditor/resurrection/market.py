@@ -1,23 +1,22 @@
 from __future__ import annotations
 
-import json
 import re
-import urllib.request
-import urllib.parse
-from typing import Any
 
-from ..safety import redact_secrets
 from .schemas import MarketContext, SubstantiveSubgraph
 
 
 class MarketIntelligenceProvider:
     """
-    Fetches real-time market facts (active competitors, pricing models, demand signals)
-    for a salvageable substantive subgraph.
+    Provides bounded market context for a salvageable substantive subgraph.
+
+    Current v1.0 behavior is intentionally offline-only. The provider maps a
+    deterministic code subgraph to a coarse market category and returns a
+    static benchmark set. It does not perform live web research, validate
+    current competitor status, or verify current pricing.
 
     EPISTEMIC INVARIANT:
-    All output is labeled 'external_market_speculation'. It provides commercial context
-    around the code, but is never confused with deterministic AST proof.
+    All output is labeled ``external_market_speculation``. Commercial context
+    must never be confused with deterministic AST proof.
     """
 
     def __init__(self, offline: bool = True, timeout_seconds: float = 10.0):
@@ -31,10 +30,10 @@ class MarketIntelligenceProvider:
     ) -> MarketContext:
         category = self._infer_market_category(subgraph, product_archetype)
 
-        if self.offline:
-            return self._offline_market_context(category)
-
-        return self._live_market_context(category)
+        # v1.0 has no live research adapter. Even when a caller requests an
+        # online-capable mode, fail closed to explicitly labeled offline
+        # heuristics instead of implying that current market facts were fetched.
+        return self._offline_market_context(category)
 
     def _infer_market_category(self, subgraph: SubstantiveSubgraph, archetype: str) -> str:
         names = " ".join(s["name"] for s in subgraph.nodes)
@@ -61,19 +60,19 @@ class MarketIntelligenceProvider:
                     {"name": "Snyk Code", "model": "Free Tier + Per-Developer SaaS Subscription"},
                     {"name": "SonarQube", "model": "Self-hosted Community + Commercial Server"},
                 ],
-                "pricing": ["$0 (local CLI) to $30–$50/dev/month for team cloud features"],
-                "demand_signals": ["High demand for fast, zero-false-positive AST scanning in CI/CD pipelines"],
-                "risks": ["Crowded incumbent market; requires strong accuracy differentiation (zero noise/fakes)"],
+                "pricing": ["Historical heuristic: $0 local tooling to roughly $30-$50/dev/month for team cloud features"],
+                "demand_signals": ["Heuristic: teams value fast, low-noise static analysis in CI/CD workflows"],
+                "risks": ["Crowded incumbent market; accuracy and workflow differentiation would need current validation"],
             },
             "Developer Billing & Usage Metering Infrastructure": {
                 "competitors": [
-                    {"name": "Stripe Billing", "model": "0.5% - 0.8% of billing volume"},
+                    {"name": "Stripe Billing", "model": "Usage/volume-based commercial billing platform"},
                     {"name": "Lago", "model": "Open-source metering + Paid Cloud"},
                     {"name": "Togai", "model": "Usage-based event metering SaaS"},
                 ],
-                "pricing": ["Volume-based transaction fee or $250+/mo usage tiers"],
-                "demand_signals": ["Growth in usage-based pricing models across AI and infrastructure products"],
-                "risks": ["High reliability and compliance/regulatory requirements"],
+                "pricing": ["Historical heuristic: volume-based fees or paid monthly usage tiers"],
+                "demand_signals": ["Heuristic: usage-based pricing remains relevant to AI and infrastructure products"],
+                "risks": ["High reliability, accounting, and compliance requirements; current market facts require validation"],
             },
             "Asynchronous Job & Workflow Automation": {
                 "competitors": [
@@ -81,8 +80,8 @@ class MarketIntelligenceProvider:
                     {"name": "Inngest", "model": "Event-driven workflow execution SaaS"},
                     {"name": "Trigger.dev", "model": "Developer-first background jobs"},
                 ],
-                "pricing": ["$0 developer tier + usage per million steps ($10-$25)"],
-                "demand_signals": ["Shift toward durable execution and code-first workflows"],
+                "pricing": ["Historical heuristic: free developer tiers plus usage-based paid plans"],
+                "demand_signals": ["Heuristic: durable execution and code-first workflows are established product patterns"],
                 "risks": ["Infrastructure complexity and state persistence management"],
             },
         }
@@ -90,11 +89,11 @@ class MarketIntelligenceProvider:
         default_data = {
             "competitors": [
                 {"name": "Standard Open Source Libraries", "model": "Free / Self-supported"},
-                {"name": "SaaS Vertical Niche Tools", "model": "Subscription $20-$100/mo"},
+                {"name": "Vertical SaaS Tools", "model": "Subscription"},
             ],
-            "pricing": ["Freemium single-user CLI + $19-$49/mo team tier"],
-            "demand_signals": ["Developer preference for lightweight, non-intrusive CLI tools"],
-            "risks": ["Low willingness to pay for unbranded utility scripts without complete product UX"],
+            "pricing": ["Historical heuristic: freemium tooling with paid individual or team tiers"],
+            "demand_signals": ["Heuristic: developers often prefer lightweight, non-intrusive tooling"],
+            "risks": ["Willingness to pay is unknown until the specific workflow and buyer are validated"],
         }
 
         entry = benchmarks.get(category, default_data)
@@ -105,14 +104,6 @@ class MarketIntelligenceProvider:
             pricing_benchmarks=entry["pricing"],
             demand_signals=entry["demand_signals"],
             market_risks=entry["risks"],
-            sources=["Static Industry Benchmark Knowledge Base"],
+            sources=["Bundled static benchmark heuristics; not live market research"],
             epistemic_rating="external_market_speculation",
         )
-
-    def _live_market_context(self, category: str) -> MarketContext:
-        """
-        Queries real-time market signals if network connectivity is available,
-        failing closed to offline benchmarks if unreachable.
-        """
-        # In a hardened environment, attempt lightweight external query or fallback
-        return self._offline_market_context(category)
