@@ -1,21 +1,19 @@
-name: Build Relic Auditor Windows Installer
+name: Legacy v0.8.3 Windows Installer Verification
+
+# IMPORTANT:
+# This workflow is retained only to reproduce the historical v0.8.3 installer.
+# It does NOT validate Relic Auditor v1.0.0 and must not be cited as v1 release
+# evidence. A new workflow must be created from the reconciled v1 lineage and
+# pinned to that release's exact frozen source artifact before v1 is published.
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - installer/v0.8.3
-    paths:
-      - ".github/workflows/windows-installer.yml"
-      - "installer/windows/**"
-      - "releases/relic-auditor-0.8.3.zip"
-      - "tests/**"
 
 permissions:
   contents: read
 
 jobs:
-  windows-installer:
+  legacy-windows-installer:
     runs-on: windows-latest
     timeout-minutes: 50
     env:
@@ -24,8 +22,17 @@ jobs:
       WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
 
     steps:
-      - name: Check out installer branch
+      - name: Check out requested historical ref
         uses: actions/checkout@v4
+
+      - name: Guard against accidental v1 validation claims
+        shell: pwsh
+        run: |
+          if (-not (Test-Path -LiteralPath "releases/relic-auditor-0.8.3.zip") -and
+              -not (Test-Path -LiteralPath "releases/relic-auditor-0.8.3.zip.parts")) {
+            throw "This is a legacy v0.8.3 reproduction workflow. The historical v0.8.3 source artifact is not present on this ref."
+          }
+          Write-Host "LEGACY WORKFLOW: output from this run is v0.8.3-only and is not v1.0.0 release evidence."
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -75,7 +82,7 @@ jobs:
             "enabled=false" >> $env:GITHUB_OUTPUT
           }
 
-      - name: Build and clean-test installer
+      - name: Build and clean-test historical installer
         shell: pwsh
         run: |
           if ("${{ steps.signing.outputs.enabled }}" -eq "true") {
@@ -98,10 +105,10 @@ jobs:
         shell: pwsh
         run: Remove-Item -LiteralPath "${{ steps.signing.outputs.certificate }}" -Force -ErrorAction SilentlyContinue
 
-      - name: Upload verified installer
+      - name: Upload historical installer
         uses: actions/upload-artifact@v4
         with:
-          name: Relic-Auditor-0.8.3-Windows-x64
+          name: LEGACY-Relic-Auditor-0.8.3-Windows-x64
           path: release-output/*
           if-no-files-found: error
           compression-level: 0
