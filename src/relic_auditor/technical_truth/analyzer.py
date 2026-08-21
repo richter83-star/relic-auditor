@@ -130,7 +130,8 @@ def _surfaces(audit, symbols, family_for):
             endpoints.append(_endpoint(record.path, family, "ANY", "/" + match.group(1).lstrip("/"), match.group(2), "django", True, text))
         if re.search(r"(?m)export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)\b", text):
             method = re.search(r"(?m)export\s+(?:async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)\b", text).group(1)
-            route = "/" + "/".join(part for part in PurePosixPath(record.path).parts if part not in {"app", "route.ts", "route.js"})[:-1]
+            parts = [part for part in PurePosixPath(record.path).parts if part not in {"app", "src", "route.ts", "route.js"}]
+            route = "/" + "/".join(parts).strip("/")
             endpoints.append(_endpoint(record.path, family, method.lower(), route or "/", method, "nextjs", True, text))
         for match in re.finditer(r"""(?:fetch|axios\.(?:get|post|put|patch|delete))\(\s*['"`]([^'"`]+)""", text):
             ui.append({"surface_id": stable_id("ui", record.path, match.group(1), str(match.start())), "project_family_id": family, "type": "ui_action", "file": record.path, "action": "api_request", "target": match.group(1), "line": _line(text, match.start()), "mock_only": bool(re.search(r"\b(mockData|fixture|fakeReport)\b", text)), "confidence": 0.9})
@@ -761,8 +762,13 @@ def _edge(source, target, kind, confidence, observation, method):
 
 
 def _route_match(client, route):
-    clean = client.split("?")[0].replace("${", ":")
-    return clean == route or clean.endswith(route) or route.endswith(clean)
+    if not client or not route:
+        return False
+    clean = client.split("?")[0].replace("${", ":").rstrip("/")
+    target = route.rstrip("/")
+    if not clean or not target:
+        return clean == target
+    return clean == target or clean.endswith("/" + target.lstrip("/")) or target.endswith("/" + clean.lstrip("/"))
 def _workflow_name(entry): return f"{entry.get('method', 'UI')} {entry.get('route') or entry.get('target') or entry.get('action')}"
 def _confidence(status, edges, missing): return round(max(.15, min(.96, {"verified_end_to_end": .82, "partially_implemented": .58, "implemented_but_disconnected": .65, "interface_only": .35}.get(status, .3) + min(.1, edges * .015) - min(.2, missing * .08))), 2)
 def _label(score): return "very high" if score >= .9 else "high" if score >= .75 else "moderate" if score >= .55 else "low" if score >= .3 else "very low"
