@@ -40,7 +40,7 @@ OPERATING CONSTRAINTS:
 Do not include markdown fences or secrets."""
 
 _PATH_REFERENCE_RE = re.compile(
-    r"(?<![A-Za-z0-9_.-])([A-Za-z0-9_.\-/]+\.(?:py|js|jsx|ts|tsx|java|cs|go|rs|rb|php|swift|kt|c|cc|cpp|h|hpp|sql|sh))(?![A-Za-z0-9_.-])",
+    r"(?<![A-Za-z0-9_.-])([A-Za-z0-9_.\-/]+\.(?:py|js|jsx|ts|tsx|java|cs|go|rs|rb|php|swift|kt|c|cc|cpp|h|hpp|sql|sh))(?![A-Za-z0-9_-])",
     re.IGNORECASE,
 )
 _SYMBOL_REFERENCE_RE = re.compile(
@@ -59,7 +59,7 @@ def resurrect_estate(
     cfg = config or ResurrectionConfig()
     cfg.validate()
     subgraphs = extract_substantive_subgraphs(audit, technical_truth)
-    gate = evaluate_salvageability_gate(subgraphs, cfg)
+    gate = evaluate_salvability_gate = evaluate_salvageability_gate(subgraphs, cfg)
     market_provider = MarketIntelligenceProvider(offline=cfg.offline)
 
     if gate.bypass_llm or gate.verdict == "TOSS_IT":
@@ -514,7 +514,11 @@ def _citations(value: Any) -> list[dict[str, Any]]:
         if not isinstance(item, dict):
             continue
         raw_ids = item.get("source_evidence_ids", [])
-        ids = [str(evidence_id) for evidence_id in raw_ids] if isinstance(raw_ids, list) else []
+        ids = (
+            [str(evidence_id) for evidence_id in raw_ids]
+            if isinstance(raw_ids, list)
+            else []
+        )
         results.append(
             {
                 "claim": str(item.get("claim", "")),
