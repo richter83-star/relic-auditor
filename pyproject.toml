@@ -19,7 +19,7 @@ llm = []
 all = ["PySide6>=6.7,<7"]
 
 [project.scripts]
-relic = "relic_auditor.cli:main"
+relic = "relic_auditor.entrypoint:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
