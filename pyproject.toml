@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "relic-auditor"
-version = "0.12.0"
+version = "1.0.1"
 description = "A deterministic, local-first appraisal tool for messy software estates."
 readme = "README.md"
 requires-python = ">=3.11"

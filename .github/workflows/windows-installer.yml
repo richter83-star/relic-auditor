@@ -1,14 +1,15 @@
-name: Build Relic Auditor Windows Installer
+name: Build Relic Auditor v1.0.1 Windows RC
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - installer/v0.12.0
+      - reconcile/v1.0.1-unified
     paths:
       - ".github/workflows/windows-installer.yml"
       - "installer/windows/**"
-      - "releases/relic-auditor-0.12.0.zip"
+      - "pyproject.toml"
+      - "src/**"
       - "tests/**"
 
 permissions:
@@ -17,15 +18,16 @@ permissions:
 jobs:
   windows-installer:
     runs-on: windows-latest
-    timeout-minutes: 50
+    timeout-minutes: 60
     env:
-      RELIC_SOURCE_SHA256: a5c0b6f90b18b6198a9c10af8c57b2fd54ee82054c1e3f16b6f4bf3bf22df732
       WINDOWS_SIGNING_PFX_BASE64: ${{ secrets.WINDOWS_SIGNING_PFX_BASE64 }}
       WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
 
     steps:
-      - name: Check out installer branch
+      - name: Check out reconciliation branch
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -35,27 +37,18 @@ jobs:
           cache: "pip"
           cache-dependency-path: installer/windows/requirements-build.txt
 
-      - name: Verify frozen v0.12.0 source
+      - name: Freeze exact v1.0.1 source from checked-out commit
+        id: source
         shell: pwsh
         run: |
-          $archive = "releases/relic-auditor-0.12.0.zip"
-          if (-not (Test-Path -LiteralPath $archive)) {
-            $parts = Get-ChildItem -LiteralPath "releases/relic-auditor-0.11.0.zip.parts" -Filter "part-*" -File | Sort-Object Name
-            if (-not $parts) { throw "Frozen source archive and transport parts are both missing." }
-            $destination = [IO.File]::Open($archive, [IO.FileMode]::Create, [IO.FileAccess]::Write)
-            try {
-              foreach ($part in $parts) {
-                $input = [IO.File]::OpenRead($part.FullName)
-                try { $input.CopyTo($destination) } finally { $input.Dispose() }
-              }
-            } finally {
-              $destination.Dispose()
-            }
-          }
-          $actual = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-          if ($actual -ne $env:RELIC_SOURCE_SHA256) {
-            throw "Frozen source hash mismatch: $actual"
-          }
+          New-Item -ItemType Directory -Path "releases" -Force | Out-Null
+          $archive = "releases/relic-auditor-1.0.1.zip"
+          git archive --format=zip --prefix=relic-auditor-1.0.1/ -o $archive HEAD
+          if ($LASTEXITCODE -ne 0) { throw "git archive failed with exit code $LASTEXITCODE" }
+          $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          "archive=$archive" >> $env:GITHUB_OUTPUT
+          "sha256=$hash" >> $env:GITHUB_OUTPUT
+          Write-Host "Frozen source SHA-256: $hash"
 
       - name: Install Inno Setup 6
         shell: pwsh
@@ -75,33 +68,34 @@ jobs:
             "enabled=false" >> $env:GITHUB_OUTPUT
           }
 
-      - name: Build and clean-test installer
+      - name: Build and clean-test v1.0.1 installer
         shell: pwsh
         run: |
           if ("${{ steps.signing.outputs.enabled }}" -eq "true") {
             & "installer/windows/build-installer.ps1" `
-              -SourceArchive "releases/relic-auditor-0.12.0.zip" `
-              -ExpectedSourceSha256 $env:RELIC_SOURCE_SHA256 `
+              -SourceArchive "${{ steps.source.outputs.archive }}" `
+              -ExpectedSourceSha256 "${{ steps.source.outputs.sha256 }}" `
               -OutputDirectory "release-output" `
               -SigningCertificate "${{ steps.signing.outputs.certificate }}" `
               -SigningPassword $env:WINDOWS_SIGNING_PFX_PASSWORD
           } else {
             & "installer/windows/build-installer.ps1" `
-              -SourceArchive "releases/relic-auditor-0.12.0.zip" `
-              -ExpectedSourceSha256 $env:RELIC_SOURCE_SHA256 `
+              -SourceArchive "${{ steps.source.outputs.archive }}" `
+              -ExpectedSourceSha256 "${{ steps.source.outputs.sha256 }}" `
               -OutputDirectory "release-output"
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item -LiteralPath "${{ steps.source.outputs.archive }}" -Destination "release-output/relic-auditor-1.0.1.zip" -Force
 
       - name: Remove signing certificate
         if: always() && steps.signing.outputs.enabled == 'true'
         shell: pwsh
         run: Remove-Item -LiteralPath "${{ steps.signing.outputs.certificate }}" -Force -ErrorAction SilentlyContinue
 
-      - name: Upload verified installer
+      - name: Upload verified v1.0.1 RC artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Relic-Auditor-0.12.0-Windows-x64
+          name: Relic-Auditor-1.0.1-RC-Windows-x64
           path: release-output/*
           if-no-files-found: error
           compression-level: 0

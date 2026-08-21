@@ -1,49 +1,38 @@
-# Relic Auditor 0.12.0 — Windows installer
+# Relic Auditor 1.0.1 RC — Windows installer
 
-`Relic-Auditor-Setup-0.12.0-x64.exe` installs the frozen Relic Auditor 0.12.0 release candidate for the current Windows user.
+`Relic-Auditor-Setup-1.0.1-x64.exe` installs the reconciled Relic Auditor 1.0.1 release candidate for the current Windows user.
+
+This candidate unifies the validated v0.12 product line with Resurrection Mode and the later Technical Truth corrections. It remains an internal release candidate until the exact frozen-source and Windows lifecycle gates complete successfully.
 
 ## What it installs
 
 - Evidence Console desktop application and Start menu shortcut
-- `relic` command-line application, with an optional user-PATH entry enabled by default
+- `relic` command-line application, including `relic resurrect`, with an optional user-PATH entry enabled by default
+- Product Builder Bridge / Build Pack support
+- approval-gated Assisted Build Supervisor/runtime
+- licensing, LLM health, and fail-closed updater/trust-root support
 - Python 3.12, PySide6, keyring, and all required runtime files inside the application directory
 - A normal Windows uninstaller
-- A visible stable-channel update checker with verified installer handoff
-
-No separate Python installation and no manual PATH setup are required. The installer does not install or authenticate Claude Code. If Claude Max reasoning is used, the official `claude` command must already be installed and signed in with the intended subscription account.
 
 ## Safety and persistence
 
 - Installation is per-user by default and does not require administrator rights.
-- Installing over v0.10.x or v0.11.0 upgrades the same application in place;
-  the stable AppId, install directory, shortcuts, and uninstall entry are reused.
-- Managed PyInstaller runtime directories are refreshed during upgrade so stale
-  dependencies do not accumulate.
-- Relic retains its read-only/no-execution boundary for scanned targets.
+- Installing over v0.10.x, v0.11.x, or v0.12.x upgrades the same application in place; the stable AppId, install directory, shortcuts, and uninstall entry are reused.
+- Managed PyInstaller runtime directories are refreshed during upgrade so stale dependencies do not accumulate.
+- Scanned targets remain read-only and are never executed by the audit path.
+- Assisted builds operate only inside Relic-managed workspaces and remain approval-gated.
 - Uninstall removes the application and its exact CLI PATH entry.
-- Uninstall deliberately preserves Relic profiles and configuration under `%APPDATA%\Relic Auditor` and never removes reports created elsewhere.
+- Uninstall preserves Relic profiles and configuration under `%APPDATA%\Relic Auditor` and never removes reports created elsewhere.
 
 ## Supported systems
 
 - 64-bit Windows 10 version 1809 or newer
 - 64-bit Windows 11
 
-## Verify the download
+## Verify the installer artifact
 
-From PowerShell in the download folder:
-
-```powershell
-Get-FileHash ".\Relic-Auditor-Setup-0.12.0-x64.exe" -Algorithm SHA256
-```
-
-Compare the result with `SHA256SUMS.txt` from the same release.
+Use PowerShell to calculate the installer SHA-256 and compare it with `SHA256SUMS.txt` from the same verified artifact set.
 
 ## Code signing
 
-The release manifest records the Authenticode status. An unsigned build is suitable for internal testing but Windows SmartScreen may warn until the installer is signed with a trusted code-signing certificate and has accumulated reputation.
-
-Relic's built-in updater is stricter than a manual install: it will not enable
-**Install update** unless Windows validates a signature from the pinned
-Dracanus AI publisher. Automatic checking can therefore ship in an internal
-unsigned build, but verified in-app installation remains blocked until the
-Windows workflow receives the trusted code-signing certificate.
+The release manifest records the Authenticode status. Unsigned artifacts are internal test builds. Relic's updater remains fail-closed and does not enable automatic installation unless the installer and update metadata satisfy the configured trust policy.
