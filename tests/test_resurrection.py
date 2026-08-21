@@ -1,18 +1,32 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from relic_auditor.audit import audit_estate
 from relic_auditor.entrypoint import main
+from relic_auditor.llm.schemas import LLMProfile
 from relic_auditor.resurrection import (
     ResurrectionConfig,
+    extract_substantive_subgraphs,
     resurrect_estate,
     write_resurrection_reports,
 )
 from relic_auditor.resurrection.reasoner import _verify_citation_grounding
 from relic_auditor.technical_truth import analyze_technical_truth
+
+
+class _Profiles:
+    def __init__(self, profile: LLMProfile):
+        self.profile = profile
+
+    def get(self, name: str) -> LLMProfile:
+        if name != self.profile.name:
+            raise KeyError(name)
+        return self.profile
 
 
 class ResurrectionTests(unittest.TestCase):
@@ -59,24 +73,7 @@ class ResurrectionTests(unittest.TestCase):
     def test_03_connected_real_core_emits_resurrect(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
-            (root / "app.py").write_text(
-                (
-                    "from fastapi import FastAPI\n"
-                    "app = FastAPI()\n"
-                    "@app.post('/analyze')\n"
-                    "def analyze_endpoint(data):\n"
-                    "    parsed = parse_ast(data)\n"
-                    "    validated = validate_rules(parsed)\n"
-                    "    return emit_report(validated)\n"
-                    "def parse_ast(data):\n"
-                    "    return {'tree': data}\n"
-                    "def validate_rules(tree):\n"
-                    "    return {'valid': bool(tree)}\n"
-                    "def emit_report(status):\n"
-                    "    return {'report': status}\n"
-                ),
-                encoding="utf-8",
-            )
+            _write_connected_core(root / "app.py")
             audit = audit_estate(root)
             truth = analyze_technical_truth(audit)
             result = resurrect_estate(audit, truth)
@@ -125,6 +122,7 @@ class ResurrectionTests(unittest.TestCase):
             ],
             "subgraph_id": "subgraph_123",
             "surface_anchors": [],
+            "known_stubs": [],
         }
         fake_llm_response = {
             "verdict": "RESURRECT",
@@ -197,6 +195,111 @@ class ResurrectionTests(unittest.TestCase):
                 "Bundled static benchmark heuristics",
                 result.market_context.sources[0],
             )
+
+    def test_08_configured_llm_uses_v012_provider_contract(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            _write_connected_core(root / "app.py")
+            audit = audit_estate(root)
+            truth = analyze_technical_truth(audit)
+            largest = extract_substantive_subgraphs(audit, truth)[0]
+            evidence_id = largest.nodes[0]["symbol_id"]
+            response = json.dumps(
+                {
+                    "verdict": "RESURRECT",
+                    "verdict_confidence": 0.82,
+                    "verdict_rationale": "The connected app.py core is substantive.",
+                    "salvageable_core_paths": [largest.substantive_paths[0]],
+                    "cut_list": [],
+                    "missing_bridge_components": ["Production adapter"],
+                    "remediation_steps": ["Wrap the verified core behind a reviewed adapter."],
+                    "citations": [
+                        {
+                            "claim": "Connected core",
+                            "source_evidence_ids": [largest.subgraph_id, evidence_id],
+                        }
+                    ],
+                }
+            )
+            profile = LLMProfile(
+                name="test-profile",
+                protocol="openai-responses",
+                model="test-model",
+                base_url="https://example.invalid/v1",
+                auth_mode="api-key",
+                api_key_env="RELIC_TEST_KEY",
+            )
+            cfg = ResurrectionConfig(
+                llm_profile=profile.name,
+                offline=False,
+                include_market_facts=False,
+                max_output_tokens=321,
+                timeout_seconds=12.5,
+            )
+            with patch(
+                "relic_auditor.resurrection.reasoner.complete",
+                return_value=response,
+            ) as mocked_complete:
+                result = resurrect_estate(
+                    audit,
+                    truth,
+                    cfg,
+                    profiles=_Profiles(profile),
+                )
+
+            self.assertEqual(result.verdict, "RESURRECT")
+            self.assertTrue(result.citation_verification.valid)
+            args, kwargs = mocked_complete.call_args
+            self.assertIs(args[0], profile)
+            self.assertIn("EVIDENCE ENVELOPE", args[1])
+            self.assertEqual(kwargs["max_output_tokens"], 321)
+            self.assertEqual(kwargs["timeout_seconds"], 12.5)
+
+    def test_09_grounding_rejects_invented_paths_in_remediation(self):
+        envelope = {
+            "substantive_paths": ["src/real.py"],
+            "substantive_symbols": [
+                {"symbol_id": "sym_real", "name": "real_fn", "file": "src/real.py"}
+            ],
+            "subgraph_id": "subgraph_123",
+            "surface_anchors": [],
+            "known_stubs": [],
+        }
+        fake_llm_response = {
+            "verdict": "RESURRECT",
+            "salvageable_core_paths": ["src/real.py"],
+            "verdict_rationale": "Reuse src/real.py.",
+            "remediation_steps": ["Wire the result through src/invented_router.py."],
+            "citations": [
+                {"claim": "Real core", "source_evidence_ids": ["sym_real"]}
+            ],
+        }
+        verification = _verify_citation_grounding(fake_llm_response, envelope)
+        self.assertFalse(verification.valid)
+        self.assertTrue(
+            any("invented_router.py" in claim for claim in verification.ungrounded_claims)
+        )
+
+
+def _write_connected_core(path: Path) -> None:
+    path.write_text(
+        (
+            "from fastapi import FastAPI\n"
+            "app = FastAPI()\n"
+            "@app.post('/analyze')\n"
+            "def analyze_endpoint(data):\n"
+            "    parsed = parse_ast(data)\n"
+            "    validated = validate_rules(parsed)\n"
+            "    return emit_report(validated)\n"
+            "def parse_ast(data):\n"
+            "    return {'tree': data}\n"
+            "def validate_rules(tree):\n"
+            "    return {'valid': bool(tree)}\n"
+            "def emit_report(status):\n"
+            "    return {'report': status}\n"
+        ),
+        encoding="utf-8",
+    )
 
 
 if __name__ == "__main__":
