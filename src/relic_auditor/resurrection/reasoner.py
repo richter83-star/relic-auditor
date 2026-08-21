@@ -244,19 +244,6 @@ def resurrect_estate(
             limitations=["LLM reasoning layer unavailable; result is 100% deterministic."],
             market_context=market_ctx,
         )
-    except Exception as exc:
-        return ResurrectionResult(
-            verdict="RESURRECT",
-            verdict_confidence=0.6,
-            gate=gate,
-            subgraphs=subgraphs,
-            epistemic_breakdown={"deterministic_proof": evidence_envelope, "error": str(exc)},
-            verdict_rationale=f"LLM reasoning was unavailable ({type(exc).__name__}). Emitting deterministic salvageable core.",
-            blueprint=deterministic_blueprint,
-            citations=[],
-            citation_verification=CitationVerification(valid=True, verified_citations=[], ungrounded_claims=[], notes="Deterministic fallback due to LLM error"),
-            limitations=["LLM reasoning layer unavailable; result is 100% deterministic."],
-        )
 
 
 def _build_evidence_envelope(subgraph: SubstantiveSubgraph, technical_truth: TechnicalTruthResult) -> dict[str, Any]:
@@ -286,7 +273,6 @@ def _build_evidence_envelope(subgraph: SubstantiveSubgraph, technical_truth: Tec
 
 def _verify_citation_grounding(llm_output: dict[str, Any], envelope: dict[str, Any]) -> CitationVerification:
     known_paths = set(envelope.get("substantive_paths", []))
-    known_symbols = {s["name"] for s in envelope.get("substantive_symbols", [])}
     known_ids = {s["symbol_id"] for s in envelope.get("substantive_symbols", [])} | {s.get("surface_id") for s in envelope.get("surface_anchors", [])}
     known_ids.add(envelope.get("subgraph_id"))
 
