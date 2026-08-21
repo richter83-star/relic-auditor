@@ -1,0 +1,146 @@
+name: Publish Relic Auditor v1.0.1
+
+on:
+  push:
+    branches:
+      - release/v1.0.1-publish
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    env:
+      TAG: v1.0.1
+      TARGET_COMMIT: 300d4efeb6747671ade474e51fed8e45b229c757
+      ARTIFACT_ID: "9436635474"
+      ARTIFACT_ZIP_SHA256: 267b3d59e7ec54391bf2a475e2a1c66f04046bd0be4842c9e07328594469083e
+      SOURCE_SHA256: 800e3bd250b81475542c150bcd89d537ad46dc26f8840a18ea071f500770af1b
+      INSTALLER_SHA256: 56c3e20c9cdcf8e2a6beae76b0e05d928e1af0002e92240c83d1ace773069d10
+      INSTALLER_SIZE: "73928624"
+
+    steps:
+      - name: Check out canonical release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_COMMIT }}
+          fetch-depth: 0
+
+      - name: Verify canonical validation run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_json="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/32453647140")"
+          test "$(jq -r '.head_sha' <<<"$run_json")" = "$TARGET_COMMIT"
+          test "$(jq -r '.status' <<<"$run_json")" = "completed"
+          test "$(jq -r '.conclusion' <<<"$run_json")" = "success"
+
+      - name: Download canonical RC artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api -H "Accept: application/vnd.github+json" \
+            "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > canonical-artifact.zip
+          echo "${ARTIFACT_ZIP_SHA256}  canonical-artifact.zip" | sha256sum -c -
+          mkdir release-assets
+          unzip -q canonical-artifact.zip -d release-assets
+
+      - name: Verify exact release payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected=(
+            "INSTALLER-README.md"
+            "Relic-Auditor-Setup-1.0.1-x64.exe"
+            "SHA256SUMS.txt"
+            "release-manifest.json"
+            "relic-auditor-1.0.1.zip"
+          )
+          mapfile -t actual < <(find release-assets -maxdepth 1 -type f -printf '%f\n' | sort)
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${wanted[@]}") <(printf '%s\n' "${actual[@]}")
+
+          echo "${SOURCE_SHA256}  release-assets/relic-auditor-1.0.1.zip" | sha256sum -c -
+          echo "${INSTALLER_SHA256}  release-assets/Relic-Auditor-Setup-1.0.1-x64.exe" | sha256sum -c -
+          test "$(stat -c '%s' release-assets/Relic-Auditor-Setup-1.0.1-x64.exe)" = "$INSTALLER_SIZE"
+          grep -q 'NotSigned' release-assets/release-manifest.json
+
+      - name: Prepare public release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > RELEASE-NOTES-PUBLIC.md <<'EOF'
+          # Relic Auditor v1.0.1
+
+          Relic Auditor v1.0.1 is the unified release line built from the validated v0.12 production foundation plus the selectively ported Resurrection and Technical Truth work.
+
+          ## Windows signing notice
+
+          The Windows installer in this release is **not Authenticode-signed**. Its SHA-256 is published and verified, but Windows may show an unknown-publisher warning. Relic Auditor's automatic updater remains fail-closed and is **not enabled for this unsigned release**. Manual installation is the supported path until a trusted signing certificate and signed stable manifest are provisioned.
+
+          ## Verification
+
+          - Release commit: `300d4efeb6747671ade474e51fed8e45b229c757`
+          - Validation run: `32453647140` (passed)
+          - Frozen source SHA-256: `800e3bd250b81475542c150bcd89d537ad46dc26f8840a18ea071f500770af1b`
+          - Windows installer SHA-256: `56c3e20c9cdcf8e2a6beae76b0e05d928e1af0002e92240c83d1ace773069d10`
+          - Windows installer size: `73,928,624 bytes`
+          - Authenticode: `NotSigned`
+
+          EOF
+          cat docs/v1.0.1-release-notes.md >> RELEASE-NOTES-PUBLIC.md
+
+      - name: Create exact v1.0.1 tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" > existing-tag.json 2>/dev/null; then
+            existing="$(jq -r '.object.sha' existing-tag.json)"
+            test "$existing" = "$TARGET_COMMIT"
+            echo "Tag ${TAG} already exists at the correct commit."
+          else
+            gh api -X POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f ref="refs/tags/${TAG}" \
+              -f sha="${TARGET_COMMIT}"
+          fi
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release ${TAG} already exists; refusing to overwrite it."
+            exit 1
+          fi
+          gh release create "$TAG" \
+            release-assets/Relic-Auditor-Setup-1.0.1-x64.exe \
+            release-assets/relic-auditor-1.0.1.zip \
+            release-assets/release-manifest.json \
+            release-assets/SHA256SUMS.txt \
+            release-assets/INSTALLER-README.md \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Relic Auditor v1.0.1" \
+            --notes-file RELEASE-NOTES-PUBLIC.md \
+            --verify-tag
+
+      - name: Verify published Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          release_json="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}")"
+          test "$(jq -r '.tag_name' <<<"$release_json")" = "$TAG"
+          test "$(jq -r '.draft' <<<"$release_json")" = "false"
+          test "$(jq -r '.prerelease' <<<"$release_json")" = "false"
+          printf '%s\n' "$release_json" | jq -r '.html_url'
