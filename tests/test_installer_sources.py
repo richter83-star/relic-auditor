@@ -79,6 +79,11 @@ def test_clean_install_and_uninstall_are_release_gates() -> None:
         "updater_requires_trusted_authenticode",
         "bundled_resurrection_smoke",
         "installed_resurrection_smoke",
+        "bundled_build_pack_entitlement_gate_smoke",
+        "installed_build_pack_entitlement_gate_smoke",
+        "bundled_assisted_build_entitlement_gate_smoke",
+        "installed_assisted_build_entitlement_gate_smoke",
+        "Assert-EntitlementGate",
     ):
         assert required in build
 

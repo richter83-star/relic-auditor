@@ -39,6 +39,18 @@ function Invoke-Checked {
     }
 }
 
+function Assert-EntitlementGate {
+    param(
+        [Parameter(Mandatory = $true)][string]$Command,
+        [Parameter(Mandatory = $true)][string[]]$Arguments,
+        [Parameter(Mandatory = $true)][string]$CapabilityName
+    )
+    $Output = (& $Command @Arguments 2>&1 | Out-String).Trim()
+    if ($LASTEXITCODE -ne 2 -or $Output -notmatch "requires a higher Relic entitlement") {
+        throw "$CapabilityName entitlement-gate smoke failed. Exit code: $LASTEXITCODE. Output: $Output"
+    }
+}
+
 function Get-PythonLauncher {
     $Py = Get-Command "py.exe" -ErrorAction SilentlyContinue
     if ($Py) {
@@ -193,6 +205,15 @@ $BundledVersion = (& $CliExe "--version" 2>&1 | Out-String).Trim()
 if ($LASTEXITCODE -ne 0 -or $BundledVersion -ne "relic 1.0.2") {
     throw "Bundled CLI version verification failed: $BundledVersion"
 }
+Invoke-Checked -Command $CliExe -Arguments @("build-pack", "--help")
+Invoke-Checked -Command $CliExe -Arguments @("build", "--help")
+Assert-EntitlementGate -Command $CliExe -Arguments @(
+    "build-pack", "list", (Join-Path $SafeBuildRoot "missing-opportunities.json"), "--json"
+) -CapabilityName "Bundled Build Pack"
+Assert-EntitlementGate -Command $CliExe -Arguments @(
+    "build", "start", (Join-Path $SafeBuildRoot "missing-build-pack"),
+    "--sessions", (Join-Path $SafeBuildRoot "missing-sessions"), "--json"
+) -CapabilityName "Bundled Assisted Build"
 $Fixture = Join-Path $SourceRoot "tests\fixtures\false_compliance"
 $BundleSmokeRoot = Join-Path $SafeBuildRoot "bundle-smoke"
 New-Item -ItemType Directory -Path $BundleSmokeRoot | Out-Null
@@ -231,6 +252,15 @@ try {
     if ($LASTEXITCODE -ne 0 -or $InstalledVersion -ne "relic 1.0.2") {
         throw "Installed CLI version verification failed: $InstalledVersion"
     }
+    Invoke-Checked -Command $InstalledCli -Arguments @("build-pack", "--help")
+    Invoke-Checked -Command $InstalledCli -Arguments @("build", "--help")
+    Assert-EntitlementGate -Command $InstalledCli -Arguments @(
+        "build-pack", "list", (Join-Path $SafeBuildRoot "missing-installed-opportunities.json"), "--json"
+    ) -CapabilityName "Installed Build Pack"
+    Assert-EntitlementGate -Command $InstalledCli -Arguments @(
+        "build", "start", (Join-Path $SafeBuildRoot "missing-installed-build-pack"),
+        "--sessions", (Join-Path $SafeBuildRoot "missing-installed-sessions"), "--json"
+    ) -CapabilityName "Installed Assisted Build"
     $InstallSmokeRoot = Join-Path $SafeBuildRoot "installed-smoke"
     New-Item -ItemType Directory -Path $InstallSmokeRoot | Out-Null
     Invoke-Checked -Command $InstalledCli -Arguments @("audit", $Fixture, "--output", (Join-Path $InstallSmokeRoot "audit"), "--technical-truth")
@@ -315,8 +345,12 @@ $Manifest = [ordered]@{
     bundled_cli_smoke = "passed"
     bundled_gui_smoke = "passed"
     bundled_resurrection_smoke = "passed"
+    bundled_build_pack_entitlement_gate_smoke = "passed"
+    bundled_assisted_build_entitlement_gate_smoke = "passed"
     clean_install_smoke = "passed"
     installed_resurrection_smoke = "passed"
+    installed_build_pack_entitlement_gate_smoke = "passed"
+    installed_assisted_build_entitlement_gate_smoke = "passed"
     in_place_upgrade_smoke = "passed"
     stale_runtime_cleanup = "passed"
     uninstall_preserved_user_config = $true
