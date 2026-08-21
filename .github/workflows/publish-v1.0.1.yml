@@ -48,6 +48,7 @@ jobs:
           gh api -H "Accept: application/vnd.github+json" \
             "repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" > canonical-artifact.zip
           echo "${ARTIFACT_ZIP_SHA256}  canonical-artifact.zip" | sha256sum -c -
+          rm -rf release-assets
           mkdir release-assets
           unzip -q canonical-artifact.zip -d release-assets
 
@@ -96,7 +97,7 @@ jobs:
           EOF
           cat docs/v1.0.1-release-notes.md >> RELEASE-NOTES-PUBLIC.md
 
-      - name: Create exact v1.0.1 tag
+      - name: Create or verify exact v1.0.1 tag
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -112,28 +113,29 @@ jobs:
               -f sha="${TARGET_COMMIT}"
           fi
 
-      - name: Publish GitHub Release
+      - name: Create or verify GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release ${TAG} already exists; refusing to overwrite it."
-            exit 1
+            echo "Release ${TAG} already exists; verifying rather than overwriting."
+          else
+            gh release create "$TAG" \
+              release-assets/Relic-Auditor-Setup-1.0.1-x64.exe \
+              release-assets/relic-auditor-1.0.1.zip \
+              release-assets/release-manifest.json \
+              release-assets/SHA256SUMS.txt \
+              release-assets/INSTALLER-README.md \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Relic Auditor v1.0.1" \
+              --notes-file RELEASE-NOTES-PUBLIC.md \
+              --verify-tag
           fi
-          gh release create "$TAG" \
-            release-assets/Relic-Auditor-Setup-1.0.1-x64.exe \
-            release-assets/relic-auditor-1.0.1.zip \
-            release-assets/release-manifest.json \
-            release-assets/SHA256SUMS.txt \
-            release-assets/INSTALLER-README.md \
-            --repo "$GITHUB_REPOSITORY" \
-            --title "Relic Auditor v1.0.1" \
-            --notes-file RELEASE-NOTES-PUBLIC.md \
-            --verify-tag
 
-      - name: Verify published Release
+      - name: Verify published Release and assets
+        id: verify_release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
@@ -143,4 +145,84 @@ jobs:
           test "$(jq -r '.tag_name' <<<"$release_json")" = "$TAG"
           test "$(jq -r '.draft' <<<"$release_json")" = "false"
           test "$(jq -r '.prerelease' <<<"$release_json")" = "false"
-          printf '%s\n' "$release_json" | jq -r '.html_url'
+
+          expected=(
+            "INSTALLER-README.md"
+            "Relic-Auditor-Setup-1.0.1-x64.exe"
+            "SHA256SUMS.txt"
+            "release-manifest.json"
+            "relic-auditor-1.0.1.zip"
+          )
+          mapfile -t actual < <(jq -r '.assets[].name' <<<"$release_json" | sort)
+          mapfile -t wanted < <(printf '%s\n' "${expected[@]}" | sort)
+          diff -u <(printf '%s\n' "${wanted[@]}") <(printf '%s\n' "${actual[@]}")
+
+          release_url="$(jq -r '.html_url' <<<"$release_json")"
+          echo "release_url=$release_url" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "$release_url"
+
+      - name: Write publication proof to release branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_URL: ${{ steps.verify_release.outputs.release_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          published_at="$(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+          proof="$(jq -n \
+            --arg schema 'relic-auditor-publication-proof/v1' \
+            --arg release 'v1.0.1' \
+            --arg release_url "$RELEASE_URL" \
+            --arg tag_target "$TARGET_COMMIT" \
+            --arg validation_run '32453647140' \
+            --arg artifact_id "$ARTIFACT_ID" \
+            --arg artifact_zip_sha256 "$ARTIFACT_ZIP_SHA256" \
+            --arg source_sha256 "$SOURCE_SHA256" \
+            --arg installer_sha256 "$INSTALLER_SHA256" \
+            --argjson installer_size "$INSTALLER_SIZE" \
+            --arg publication_workflow_run "$GITHUB_RUN_ID" \
+            --arg publication_branch_head "$GITHUB_SHA" \
+            --arg published_at "$published_at" \
+            '{
+              schema: $schema,
+              release: $release,
+              release_url: $release_url,
+              tag_target: $tag_target,
+              validation_run: $validation_run,
+              validation_conclusion: "success",
+              artifact_id: $artifact_id,
+              artifact_zip_sha256: $artifact_zip_sha256,
+              source_sha256: $source_sha256,
+              installer_sha256: $installer_sha256,
+              installer_size: $installer_size,
+              authenticode: "NotSigned",
+              automatic_updater: "disabled_fail_closed_unsigned",
+              branch_protection: "requires_repository_admin_configuration",
+              publication_workflow_run: $publication_workflow_run,
+              publication_branch_head: $publication_branch_head,
+              published_at: $published_at,
+              assets: [
+                "Relic-Auditor-Setup-1.0.1-x64.exe",
+                "relic-auditor-1.0.1.zip",
+                "release-manifest.json",
+                "SHA256SUMS.txt",
+                "INSTALLER-README.md"
+              ]
+            }')"
+          encoded="$(printf '%s\n' "$proof" | base64 -w0)"
+
+          if gh api --method GET \
+              "repos/${GITHUB_REPOSITORY}/contents/releases/v1.0.1/PUBLICATION.json" \
+              -f ref="release/v1.0.1-publish" > existing-proof.json 2>/dev/null; then
+            current_sha="$(jq -r '.sha' existing-proof.json)"
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/releases/v1.0.1/PUBLICATION.json" \
+              -f message="release: refresh v1.0.1 publication proof" \
+              -f content="$encoded" \
+              -f branch="release/v1.0.1-publish" \
+              -f sha="$current_sha" >/dev/null
+          else
+            gh api -X PUT "repos/${GITHUB_REPOSITORY}/contents/releases/v1.0.1/PUBLICATION.json" \
+              -f message="release: record v1.0.1 publication proof" \
+              -f content="$encoded" \
+              -f branch="release/v1.0.1-publish" >/dev/null
+          fi
