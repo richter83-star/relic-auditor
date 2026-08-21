@@ -75,13 +75,13 @@ jobs:
           cache: "pip"
           cache-dependency-path: installer/windows/requirements-build.txt
 
-      - name: Freeze exact v1.0.1 PR-head source
+      - name: Freeze exact v1.0.2 PR-head source
         id: source
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Path "releases" -Force | Out-Null
-          $archive = "releases/relic-auditor-1.0.1.zip"
-          git archive --format=zip --prefix=relic-auditor-1.0.1/ -o $archive HEAD
+          $archive = "releases/relic-auditor-1.0.2.zip"
+          git archive --format=zip --prefix=relic-auditor-1.0.2/ -o $archive HEAD
           if ($LASTEXITCODE -ne 0) { throw "git archive failed with exit code $LASTEXITCODE" }
           $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
           "archive=$archive" >> $env:GITHUB_OUTPUT
@@ -106,7 +106,7 @@ jobs:
             "enabled=false" >> $env:GITHUB_OUTPUT
           }
 
-      - name: Build and lifecycle-test v1.0.1 installer
+      - name: Build and lifecycle-test v1.0.2 installer
         shell: pwsh
         run: |
           if ("${{ steps.signing.outputs.enabled }}" -eq "true") {
@@ -123,17 +123,17 @@ jobs:
               -OutputDirectory "release-output"
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          Copy-Item -LiteralPath "${{ steps.source.outputs.archive }}" -Destination "release-output/relic-auditor-1.0.1.zip" -Force
+          Copy-Item -LiteralPath "${{ steps.source.outputs.archive }}" -Destination "release-output/relic-auditor-1.0.2.zip" -Force
 
       - name: Remove signing certificate
         if: always() && steps.signing.outputs.enabled == 'true'
         shell: pwsh
         run: Remove-Item -LiteralPath "${{ steps.signing.outputs.certificate }}" -Force -ErrorAction SilentlyContinue
 
-      - name: Upload verified v1.0.1 PR artifacts
+      - name: Upload verified v1.0.2 PR artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Relic-Auditor-1.0.1-PR-Windows-x64
+          name: Relic-Auditor-1.0.2-PR-Windows-x64
           path: release-output/*
           if-no-files-found: error
           compression-level: 0

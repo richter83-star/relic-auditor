@@ -22,10 +22,10 @@ from pathlib import Path
 from PySide6.QtCore import (
     QObject,
     QStandardPaths,
+    Qt,
     QThread,
     QTimer,
     QUrl,
-    Qt,
     Signal,
     Slot,
 )
@@ -57,6 +57,14 @@ from PySide6.QtWidgets import (
 from .. import __version__
 from ..build_packs import BuildPackService
 from ..licensing import load_cached_entitlement
+from ..llm.claude_code import (
+    DEFAULT_EFFORT,
+    MODEL_ALIASES,
+    SUPPORTED_EFFORTS,
+    ClaudeCodeError,
+)
+from ..llm.health import load_provider_health, save_provider_health
+from ..product_discovery.entitlements import Entitlement, ProductCapability
 from ..updater import (
     DEFAULT_UPDATE_MANIFEST_URL,
     PreparedUpdate,
@@ -67,14 +75,7 @@ from ..updater import (
     save_update_check_state,
     should_check_automatically,
 )
-from ..product_discovery.entitlements import Entitlement, ProductCapability
-from ..llm.claude_code import (
-    DEFAULT_EFFORT,
-    MODEL_ALIASES,
-    SUPPORTED_EFFORTS,
-    ClaudeCodeError,
-)
-from ..llm.health import load_provider_health, save_provider_health
+from .build_pack_dialog import BuildPackDialog
 from .components import (
     ElidedLabel,
     EmptyState,
@@ -100,12 +101,15 @@ from .core import (
     default_reports_root,
     ensure_claude_max_profile,
     export_dashboard_bundle,
-    list_report_history,
     launch_claude_login,
+    list_report_history,
     run_dashboard_audit,
-    summarize_dashboard_bundle,
 )
+from .flow import FlowController, FlowState, focused_answer
+from .license_dialog import LicenseDialog
+from .supervisor_dialog import AssistedBuildDialog
 from .theme import BREAKPOINTS, SPACING, control_height, stylesheet
+from .update_dialog import UpdateDialog
 from .widgets import (
     ArchitectureView,
     CandidateTable,
@@ -113,10 +117,6 @@ from .widgets import (
     TechnicalTruthWidget,
     public_record,
 )
-from .build_pack_dialog import BuildPackDialog
-from .license_dialog import LicenseDialog
-from .supervisor_dialog import AssistedBuildDialog
-from .update_dialog import UpdateDialog
 
 
 class ScanWorker(QObject):
@@ -235,8 +235,12 @@ class RelicWindow(QMainWindow):
         self._close_when_done = False
         self._scan_started_at: float | None = None
         self._provider_configured = False
-        self._workflow_step = 1
-        self._workflow_action_key = "choose-folder"
+        self.flow = FlowController()
+        self._technical_origin: QWidget | None = None
+        self._prepared_build_pack = None
+        self._exported_build_pack = None
+        self._build_pack_service: BuildPackService | None = None
+        self._last_update_diagnostic = "No update diagnostic has been recorded."
         documents = QStandardPaths.writableLocation(
             QStandardPaths.StandardLocation.DocumentsLocation
         )
@@ -261,8 +265,12 @@ class RelicWindow(QMainWindow):
 
         self.shell_stack = QStackedWidget()
         self.product_shell = self._build_product_shell()
+        self.history_shell = self._build_history_shell()
+        self.settings_shell = self._build_settings_shell()
         self.technical_shell = self._build_technical_shell()
         self.shell_stack.addWidget(self.product_shell)
+        self.shell_stack.addWidget(self.history_shell)
+        self.shell_stack.addWidget(self.settings_shell)
         self.shell_stack.addWidget(self.technical_shell)
         self.shell_stack.setCurrentWidget(self.product_shell)
         root.addWidget(self.shell_stack, 1)
@@ -274,7 +282,7 @@ class RelicWindow(QMainWindow):
         status = QStatusBar()
         status.setSizeGripEnabled(False)
         self.status_message = ElidedLabel(
-            "Local-first · Read-only target · No execution, move, or delete"
+            "Ready"
         )
         self.status_message.setObjectName("statusMessage")
         metrics = QFontMetrics(self.status_message.font())
@@ -297,6 +305,10 @@ class RelicWindow(QMainWindow):
         self._update_llm_controls()
         self._refresh_provider(initial=True)
         self.refresh_report_history()
+        self._set_flow_state(
+            FlowState.TARGET_SELECTED if initial_target is not None else FlowState.NO_TARGET,
+            new_workflow=True,
+        )
         if initial_target is not None:
             QTimer.singleShot(150, self.start_scan)
         if getattr(sys, "frozen", False) and should_check_automatically():
@@ -394,9 +406,10 @@ class RelicWindow(QMainWindow):
             self._update_reasoning_speed_note
         )
 
-        self.run_button = PrimaryButton("Run audit")
-        self.run_button.setAccessibleName("Run audit")
+        self.run_button = PrimaryButton("SCAN THIS FOLDER")
+        self.run_button.setAccessibleName("Scan this folder")
         self.run_button.clicked.connect(self.start_scan)
+        self.run_button.setEnabled(bool(initial_target))
 
         self.export_button = SecondaryButton("Export reports")
         self.export_button.setEnabled(False)
@@ -425,10 +438,7 @@ class RelicWindow(QMainWindow):
         identity.setSpacing(0)
         brand = QLabel("RELIC AUDITOR")
         brand.setObjectName("brandMark")
-        sub = QLabel("LOCAL SOFTWARE APPRAISAL")
-        sub.setObjectName("brandSub")
         identity.addWidget(brand)
-        identity.addWidget(sub)
         layout.addLayout(identity)
         layout.addStretch(1)
 
@@ -451,10 +461,15 @@ class RelicWindow(QMainWindow):
         self.plan_button.setAccessibleName("Manage Relic plan and license")
         self.plan_button.clicked.connect(self.manage_plan)
 
-        layout.addWidget(self.trust_badge)
-        layout.addWidget(self.plan_badge)
-        layout.addWidget(self.plan_button)
-        layout.addWidget(self.update_button)
+        self.history_button = SecondaryButton("History")
+        self.history_button.setAccessibleName("Open scan history")
+        self.history_button.clicked.connect(self.open_history)
+        self.settings_button = SecondaryButton("Settings")
+        self.settings_button.setAccessibleName("Open Relic settings")
+        self.settings_button.clicked.connect(self.open_settings)
+
+        layout.addWidget(self.history_button)
+        layout.addWidget(self.settings_button)
         layout.addWidget(self.version_label)
         return header
 
@@ -464,72 +479,51 @@ class RelicWindow(QMainWindow):
         layout.setContentsMargins(SPACING.xl, SPACING.lg, SPACING.xl, SPACING.xl)
         layout.setSpacing(SPACING.lg)
 
-        layout.addWidget(self._build_workflow_guide())
-
-        self.primary_tabs = QTabWidget()
-        self.primary_tabs.setDocumentMode(True)
-        self.primary_tabs.addTab(self._build_scan_page(), "Scan")
-        self.primary_tabs.addTab(self._build_results_page(), "Results")
-        self.primary_tabs.addTab(self._build_reports_page(), "Reports")
-        layout.addWidget(self.primary_tabs, 1)
+        self.flow_stack = QStackedWidget()
+        self.scan_page = self._build_scan_page()
+        self.scanning_page = self._build_scanning_page()
+        self.answer_page = self._build_results_page()
+        self.prepare_page = self._build_prepare_page()
+        self.build_pack_page = self._build_build_pack_page()
+        for page in (
+            self.scan_page,
+            self.scanning_page,
+            self.answer_page,
+            self.prepare_page,
+            self.build_pack_page,
+        ):
+            self.flow_stack.addWidget(page)
+        layout.addWidget(self.flow_stack, 1)
         return shell
-
-    def _build_workflow_guide(self) -> QWidget:
-        panel = RelicPanel(
-            "Your next step",
-            "Relic keeps the recommended path visible; technical evidence stays optional.",
-            emphasis=True,
-        )
-        self.workflow_step_badge = StatusBadge("primary", "STEP 1 OF 5")
-        panel.add_header_widget(self.workflow_step_badge)
-        self.workflow_route = QLabel(
-            "1  Choose folder   →   2  Run audit   →   3  Wait   →   "
-            "4  Review answer   →   5  Export or build"
-        )
-        self.workflow_route.setObjectName("sectionLabel")
-        self.workflow_route.setWordWrap(True)
-        self.workflow_route.setAccessibleName("Complete five-step appraisal path")
-        panel.add_widget(self.workflow_route)
-        self.workflow_step_title = QLabel("Choose a folder")
-        self.workflow_step_title.setObjectName("panelTitle")
-        self.workflow_step_title.setWordWrap(True)
-        self.workflow_step_body = QLabel(
-            "Select the project, repository, archive collection, or loose files to appraise."
-        )
-        self.workflow_step_body.setObjectName("mutedLabel")
-        self.workflow_step_body.setWordWrap(True)
-        panel.add_widget(self.workflow_step_title)
-        panel.add_widget(self.workflow_step_body)
-        actions = QHBoxLayout()
-        actions.addStretch(1)
-        self.workflow_action_button = PrimaryButton("Choose folder")
-        self.workflow_action_button.setAccessibleName("Perform the recommended next step")
-        self.workflow_action_button.clicked.connect(self._run_workflow_action)
-        actions.addWidget(self.workflow_action_button)
-        panel.add_layout(actions)
-        return panel
 
     def _build_scan_page(self) -> QWidget:
         content = QWidget()
         column = QVBoxLayout(content)
         column.setContentsMargins(SPACING.xl, SPACING.xl, SPACING.xl, SPACING.xl)
-        column.setSpacing(SPACING.lg)
+        column.setSpacing(SPACING.xl)
 
         intro = RelicPanel(
-            "Choose a folder and let Relic appraise it",
-            "Relic reads the estate locally. It never executes, moves, or deletes scanned files.",
+            "Choose a folder to analyze.",
+            "Relic will inspect the software and explain what is valuable and what to do next.",
             emphasis=True,
         )
         intro.add_widget(self.target_selector)
+        self.source_reassurance = QLabel("Source remains read-only.")
+        self.source_reassurance.setObjectName("dimLabel")
+        self.source_reassurance.setAccessibleName(
+            "Selected source remains read-only during scanning"
+        )
+        self.source_reassurance.setVisible(bool(self.target_selector.path()))
+        intro.add_widget(self.source_reassurance)
         actions = QHBoxLayout()
         actions.addWidget(self.run_button)
         actions.addStretch(1)
-        self.scan_technical_button = SecondaryButton("Technical details")
+        self.scan_technical_button = SecondaryButton("Options")
+        self.scan_technical_button.setAccessibleName("Open advanced scan options")
         self.scan_technical_button.clicked.connect(self.open_technical_details)
         actions.addWidget(self.scan_technical_button)
         intro.add_layout(actions)
         column.addWidget(intro)
-        column.addWidget(self.scan_panel)
         column.addStretch(1)
 
         scroller = QScrollArea()
@@ -539,6 +533,27 @@ class RelicWindow(QMainWindow):
         scroller.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         return scroller
 
+    def _build_scanning_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(SPACING.xl, SPACING.xl, SPACING.xl, SPACING.xl)
+        layout.setSpacing(SPACING.xl)
+        self.scanning_title = QLabel("Analyzing…")
+        self.scanning_title.setObjectName("emptyTitle")
+        self.scanning_title.setWordWrap(True)
+        self.scanning_title.setAccessibleName("Current scan")
+        scanning_note = QLabel(
+            "Relic is reading and classifying the selected source. It will open the "
+            "answer automatically when the analysis is complete."
+        )
+        scanning_note.setObjectName("mutedLabel")
+        scanning_note.setWordWrap(True)
+        layout.addWidget(self.scanning_title)
+        layout.addWidget(scanning_note)
+        layout.addWidget(self.scan_panel)
+        layout.addStretch(1)
+        return page
+
     def _build_results_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
@@ -546,8 +561,8 @@ class RelicWindow(QMainWindow):
         layout.setSpacing(SPACING.lg)
 
         self.results_empty = EmptyState(
-            "No results yet",
-            "Choose a folder in Scan and run an audit. Relic will explain the answer here.",
+            "No answer yet",
+            "Choose a folder and scan it. Relic will explain the strongest evidence-backed path here.",
             marker=EmptyState.EVIDENCE_MARKER,
         )
         layout.addWidget(self.results_empty, 1)
@@ -556,38 +571,31 @@ class RelicWindow(QMainWindow):
         results_layout = QVBoxLayout(self.results_content)
         results_layout.setContentsMargins(0, 0, 0, 0)
         results_layout.setSpacing(SPACING.md)
-        heading = QLabel("Your appraisal")
-        heading.setObjectName("emptyTitle")
-        heading.setWordWrap(True)
-        results_layout.addWidget(heading)
+        self.answer_conclusion = QLabel("Relic is preparing the answer.")
+        self.answer_conclusion.setObjectName("answerConclusion")
+        self.answer_conclusion.setWordWrap(True)
+        self.answer_conclusion.setAccessibleName("Plain-English appraisal conclusion")
+        self.answer_detail = QLabel("")
+        self.answer_detail.setObjectName("mutedLabel")
+        self.answer_detail.setWordWrap(True)
+        results_layout.addWidget(self.answer_conclusion)
+        results_layout.addWidget(self.answer_detail)
 
-        self.opportunity_heading = QLabel("Top Opportunities")
-        self.opportunity_heading.setObjectName("panelTitle")
-        self.opportunity_heading.setVisible(False)
-        results_layout.addWidget(self.opportunity_heading)
-        self.opportunity_cards = [EvidenceCard("Opportunity") for _ in range(3)]
-        for card in self.opportunity_cards:
-            card.setVisible(False)
-            results_layout.addWidget(card)
-
-        self.found_card = EvidenceCard("What Relic found")
-        self.valuable_card = EvidenceCard("What is valuable")
-        self.risk_card = EvidenceCard("What is incomplete or risky")
-        self.next_card = EvidenceCard("What should happen next")
+        self.best_opportunity_card = EvidenceCard("BEST OPPORTUNITY")
+        self.found_card = EvidenceCard("WHAT ALREADY EXISTS")
+        self.valuable_card = self.found_card
+        self.risk_card = EvidenceCard("WHAT NEEDS ATTENTION")
+        self.next_card = EvidenceCard("RECOMMENDED NEXT MOVE")
         for card in (
+            self.best_opportunity_card,
             self.found_card,
-            self.valuable_card,
             self.risk_card,
             self.next_card,
         ):
             results_layout.addWidget(card)
 
         actions = QHBoxLayout()
-        self.view_full_report_button = PrimaryButton("View full report")
-        self.view_full_report_button.setEnabled(False)
-        self.view_full_report_button.clicked.connect(self.view_full_report)
-        actions.addWidget(self.view_full_report_button)
-        self.prepare_product_button = PrimaryButton("Prepare this product")
+        self.prepare_product_button = PrimaryButton("PREPARE THIS PRODUCT")
         self.prepare_product_button.setAccessibleName(
             "Prepare the leading product as a Build Pack"
         )
@@ -595,10 +603,28 @@ class RelicWindow(QMainWindow):
         self.prepare_product_button.clicked.connect(self.prepare_leading_product)
         actions.addWidget(self.prepare_product_button)
         actions.addStretch(1)
-        self.results_technical_button = SecondaryButton("Technical details")
-        self.results_technical_button.clicked.connect(self.open_technical_details)
-        actions.addWidget(self.results_technical_button)
         results_layout.addLayout(actions)
+
+        secondary_actions = QHBoxLayout()
+        self.other_opportunities_button = SecondaryButton("Other opportunities")
+        self.other_opportunities_button.clicked.connect(
+            self.toggle_other_opportunities
+        )
+        self.view_full_report_button = SecondaryButton("Export")
+        self.view_full_report_button.setEnabled(False)
+        self.view_full_report_button.clicked.connect(self.export_reports)
+        self.results_technical_button = SecondaryButton("View technical evidence")
+        self.results_technical_button.clicked.connect(self.open_technical_details)
+        secondary_actions.addWidget(self.other_opportunities_button)
+        secondary_actions.addWidget(self.view_full_report_button)
+        secondary_actions.addWidget(self.results_technical_button)
+        secondary_actions.addStretch(1)
+        results_layout.addLayout(secondary_actions)
+
+        self.other_opportunities_list = QListWidget()
+        self.other_opportunities_list.setAccessibleName("Other ranked opportunities")
+        self.other_opportunities_list.setVisible(False)
+        results_layout.addWidget(self.other_opportunities_list)
         self.prepare_product_note = QLabel("")
         self.prepare_product_note.setObjectName("dimLabel")
         self.prepare_product_note.setWordWrap(True)
@@ -617,57 +643,223 @@ class RelicWindow(QMainWindow):
         self.results_content.setVisible(False)
         return page
 
-    def _build_reports_page(self) -> QWidget:
+    def _build_prepare_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(SPACING.xl, SPACING.xl, SPACING.xl, SPACING.xl)
+        layout.setSpacing(SPACING.lg)
+
+        heading = QLabel("Prepare this product")
+        heading.setObjectName("emptyTitle")
+        heading.setWordWrap(True)
+        prompt = QLabel("What exactly are we about to build?")
+        prompt.setObjectName("mutedLabel")
+        layout.addWidget(heading)
+        layout.addWidget(prompt)
+
+        self.prepare_product_card = EvidenceCard("PRODUCT")
+        self.prepare_reuse_card = EvidenceCard("WE WILL REUSE")
+        self.prepare_missing_card = EvidenceCard("WE STILL NEED")
+        self.prepare_mvp_card = EvidenceCard("MVP")
+        self.prepare_risks_card = EvidenceCard("IMPORTANT RISKS")
+        for card in (
+            self.prepare_product_card,
+            self.prepare_reuse_card,
+            self.prepare_missing_card,
+            self.prepare_mvp_card,
+            self.prepare_risks_card,
+        ):
+            layout.addWidget(card)
+
+        primary = QHBoxLayout()
+        self.create_build_pack_button = PrimaryButton("CREATE BUILD PACK")
+        self.create_build_pack_button.setAccessibleName(
+            "Create and review the selected product Build Pack"
+        )
+        self.create_build_pack_button.clicked.connect(self.create_build_pack)
+        primary.addWidget(self.create_build_pack_button)
+        primary.addStretch(1)
+        layout.addLayout(primary)
+
+        secondary = QHBoxLayout()
+        self.change_opportunity_button = SecondaryButton("Change opportunity")
+        self.change_opportunity_button.clicked.connect(self.return_to_answer)
+        self.review_assets_button = SecondaryButton("Review reusable assets")
+        self.review_assets_button.clicked.connect(self.open_reusable_assets_evidence)
+        self.prepare_technical_button = SecondaryButton("View technical evidence")
+        self.prepare_technical_button.clicked.connect(self.open_technical_details)
+        secondary.addWidget(self.change_opportunity_button)
+        secondary.addWidget(self.review_assets_button)
+        secondary.addWidget(self.prepare_technical_button)
+        secondary.addStretch(1)
+        layout.addLayout(secondary)
+        layout.addStretch(1)
+        return page
+
+    def _build_build_pack_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(SPACING.xl, SPACING.xl, SPACING.xl, SPACING.xl)
+        layout.setSpacing(SPACING.xl)
+        heading = QLabel("Build Pack ready.")
+        heading.setObjectName("emptyTitle")
+        layout.addWidget(heading)
+        self.build_pack_summary = EvidenceCard("RELIC PREPARED")
+        self.build_pack_summary.set_body(
+            "Product brief\nMVP scope\nArchitecture\nImplementation plan\n"
+            "Reusable asset manifest\nAcceptance criteria\nBuilder handoff"
+        )
+        layout.addWidget(self.build_pack_summary)
+        primary = QHBoxLayout()
+        self.start_assisted_build_button = PrimaryButton("START ASSISTED BUILD")
+        self.start_assisted_build_button.setAccessibleName(
+            "Start the approval-gated Assisted Build Supervisor"
+        )
+        self.start_assisted_build_button.clicked.connect(self.start_assisted_build)
+        primary.addWidget(self.start_assisted_build_button)
+        primary.addStretch(1)
+        layout.addLayout(primary)
+        secondary = QHBoxLayout()
+        self.open_build_pack_button = SecondaryButton("Open Build Pack")
+        self.open_build_pack_button.clicked.connect(self.open_exported_build_pack)
+        self.reexport_build_pack_button = SecondaryButton("Export")
+        self.reexport_build_pack_button.clicked.connect(self.create_build_pack)
+        self.build_pack_technical_button = SecondaryButton("Technical Evidence")
+        self.build_pack_technical_button.clicked.connect(self.open_technical_details)
+        secondary.addWidget(self.open_build_pack_button)
+        secondary.addWidget(self.reexport_build_pack_button)
+        secondary.addWidget(self.build_pack_technical_button)
+        secondary.addStretch(1)
+        layout.addLayout(secondary)
+        layout.addStretch(1)
+        return page
+
+    def _build_history_shell(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(SPACING.xl, SPACING.xl, SPACING.xl, SPACING.xl)
         layout.setSpacing(SPACING.md)
 
-        panel = RelicPanel(
-            "Previous scans",
-            "Every completed audit is saved automatically in Relic Auditor's Reports folder.",
-        )
+        toolbar = QHBoxLayout()
+        back = SecondaryButton("Back")
+        back.setAccessibleName("Return to the current workflow")
+        back.clicked.connect(self.close_secondary_surface)
+        title = QLabel("HISTORY")
+        title.setObjectName("emptyTitle")
+        toolbar.addWidget(back)
+        toolbar.addWidget(title)
+        toolbar.addStretch(1)
+        layout.addLayout(toolbar)
+
         self.reports_root_label = ElidedLabel(str(self.reports_root))
-        self.reports_root_label.setObjectName("mutedLabel")
-        self.reports_root_label.setToolTip(str(self.reports_root))
-        panel.add_widget(self.reports_root_label)
-        root_actions = QHBoxLayout()
+        self.reports_root_label.setVisible(False)
         self.open_reports_root_button = SecondaryButton("Open Reports folder")
         self.open_reports_root_button.clicked.connect(self.open_reports_root)
+        self.open_reports_root_button.setVisible(False)
         self.refresh_reports_button = SecondaryButton("Refresh")
         self.refresh_reports_button.clicked.connect(self.refresh_report_history)
-        root_actions.addWidget(self.open_reports_root_button)
-        root_actions.addWidget(self.refresh_reports_button)
-        root_actions.addStretch(1)
-        panel.add_layout(root_actions)
-        layout.addWidget(panel)
+        self.refresh_reports_button.setVisible(False)
 
         self.reports_empty = EmptyState(
             "No saved scans yet",
-            "Complete an audit and its full report will appear here automatically.",
+            "Complete an audit and its answer will appear here automatically.",
             marker=EmptyState.EVIDENCE_MARKER,
             compact=True,
         )
         layout.addWidget(self.reports_empty)
         self.reports_list = QListWidget()
-        self.reports_list.setAccessibleName("Previous scans and exported reports")
+        self.reports_list.setAccessibleName("Previous scans")
         self.reports_list.itemDoubleClicked.connect(
             lambda _item: self.open_selected_report()
         )
         layout.addWidget(self.reports_list, 1)
 
         history_actions = QHBoxLayout()
-        self.open_selected_report_button = PrimaryButton("View selected report")
+        self.open_selected_report_button = SecondaryButton("Open")
         self.open_selected_report_button.clicked.connect(self.open_selected_report)
         self.open_selected_folder_button = SecondaryButton("Open scan folder")
         self.open_selected_folder_button.clicked.connect(
             self.open_selected_report_folder
         )
+        self.open_selected_folder_button.setVisible(False)
         history_actions.addWidget(self.open_selected_report_button)
-        history_actions.addWidget(self.open_selected_folder_button)
         history_actions.addStretch(1)
         layout.addLayout(history_actions)
         return page
+
+    def _build_settings_shell(self) -> QWidget:
+        shell = QWidget()
+        outer = QVBoxLayout(shell)
+        outer.setContentsMargins(SPACING.xl, SPACING.xl, SPACING.xl, SPACING.xl)
+        outer.setSpacing(SPACING.md)
+        toolbar = QHBoxLayout()
+        back = SecondaryButton("Back")
+        back.setAccessibleName("Return to the current workflow")
+        back.clicked.connect(self.close_secondary_surface)
+        title = QLabel("SETTINGS")
+        title.setObjectName("emptyTitle")
+        toolbar.addWidget(back)
+        toolbar.addWidget(title)
+        toolbar.addStretch(1)
+        outer.addLayout(toolbar)
+
+        self.settings_tabs = QTabWidget()
+        self.settings_tabs.setDocumentMode(True)
+
+        scan = RelicPanel(
+            "Scan and reasoning",
+            "Advanced controls and provider status stay outside the normal product flow.",
+        )
+        self.technical_options_button = SecondaryButton("Open advanced options")
+        self.technical_options_button.clicked.connect(self.open_technical_details)
+        scan.add_widget(self.technical_options_button)
+        self.settings_tabs.addTab(scan, "Scan")
+
+        updates = RelicPanel(
+            "Updates",
+            f"Relic Auditor {__version__} is installed. Automatic updates remain fail-closed unless every trust check passes.",
+        )
+        self.update_status_label = QLabel("Update status has not been checked in this session.")
+        self.update_status_label.setObjectName("mutedLabel")
+        self.update_status_label.setWordWrap(True)
+        updates.add_widget(self.update_status_label)
+        updates.add_widget(self.update_button)
+        self.update_diagnostics_button = SecondaryButton("Show technical diagnostics")
+        self.update_diagnostics_button.clicked.connect(self.toggle_update_diagnostics)
+        updates.add_widget(self.update_diagnostics_button)
+        self.update_diagnostic_label = QLabel(self._last_update_diagnostic)
+        self.update_diagnostic_label.setObjectName("dimLabel")
+        self.update_diagnostic_label.setWordWrap(True)
+        self.update_diagnostic_label.setVisible(False)
+        updates.add_widget(self.update_diagnostic_label)
+        self.settings_tabs.addTab(updates, "Updates")
+
+        plan = RelicPanel(
+            "Your plan",
+            "Free scanning and evidence remain available. Pro and Premium product workflows are coming soon.",
+        )
+        plan.add_widget(self.plan_badge)
+        plan.add_widget(self.plan_button)
+        self.settings_tabs.addTab(plan, "Plan")
+
+        storage = RelicPanel(
+            "Storage",
+            "Completed scans are stored in Relic Auditor's managed report history.",
+        )
+        storage_path = ElidedLabel(str(self.reports_root))
+        storage_path.setToolTip(str(self.reports_root))
+        storage.add_widget(storage_path)
+        storage.add_widget(self.open_reports_root_button)
+        self.open_reports_root_button.setVisible(True)
+        self.settings_tabs.addTab(storage, "Storage")
+
+        about = RelicPanel(
+            "About",
+            f"Relic Auditor v{__version__}\nLocal-first software appraisal with evidence-first safety boundaries.",
+        )
+        self.settings_tabs.addTab(about, "About")
+        outer.addWidget(self.settings_tabs, 1)
+        return shell
 
     def _build_technical_shell(self) -> QWidget:
         shell = QWidget()
@@ -681,12 +873,18 @@ class RelicWindow(QMainWindow):
         toolbar_layout.setContentsMargins(
             SPACING.xl, SPACING.sm, SPACING.xl, SPACING.sm
         )
-        self.back_to_product_button = SecondaryButton("Back")
+        self.back_to_product_button = SecondaryButton("Back to Answer")
         self.back_to_product_button.clicked.connect(self.close_technical_details)
-        title = QLabel("Technical details · Evidence console")
-        title.setObjectName("panelTitle")
+        title_column = QVBoxLayout()
+        title_column.setSpacing(0)
+        self.technical_title = QLabel("Technical Evidence")
+        self.technical_title.setObjectName("panelTitle")
+        self.technical_context = QLabel("Viewing evidence for: no completed scan")
+        self.technical_context.setObjectName("dimLabel")
         toolbar_layout.addWidget(self.back_to_product_button)
-        toolbar_layout.addWidget(title)
+        title_column.addWidget(self.technical_title)
+        title_column.addWidget(self.technical_context)
+        toolbar_layout.addLayout(title_column)
         toolbar_layout.addStretch(1)
         toolbar_layout.addWidget(self.provider_badge)
         layout.addWidget(toolbar)
@@ -793,7 +991,7 @@ class RelicWindow(QMainWindow):
         layout.addWidget(self._build_metrics())
 
         self.technical_guide = QLabel(
-            "Suggested order: Overview → Opportunities → Reusable Assets → "
+            "Suggested order: Evidence Summary → Opportunities → Reusable Assets → "
             "Recommended Actions. Use System Map, Technical Truth, Reasoning, "
             "Duplicates, and Files when you need to verify the evidence."
         )
@@ -880,7 +1078,7 @@ class RelicWindow(QMainWindow):
         self.tabs.tabBar().setElideMode(Qt.TextElideMode.ElideNone)
         self.tabs.tabBar().setExpanding(False)
         self.tabs.tabBar().setUsesScrollButtons(True)
-        self.tabs.addTab(self.overview, "Overview")
+        self.tabs.addTab(self.overview, "Evidence Summary")
         self.tabs.addTab(self.opportunities, "Opportunities")
         self.tabs.addTab(self.acquisition, "Reusable Assets")
         self.tabs.addTab(self.candidates, "Recommended Actions")
@@ -1047,52 +1245,93 @@ class RelicWindow(QMainWindow):
 
     @Slot()
     def open_technical_details(self) -> None:
-        """Reveal the complete evidence console without adding a fourth tab."""
+        """Reveal expert evidence and remember the exact originating surface."""
 
+        origin = self.shell_stack.currentWidget()
+        if origin is not self.technical_shell:
+            self._technical_origin = origin
+        target = self.bundle.audit.target.name if self.bundle is not None else "no completed scan"
+        self.technical_context.setText(f"Viewing evidence for: {target}")
+        if origin is self.product_shell and self.flow.state in {
+            FlowState.ANSWER_READY,
+            FlowState.PREPARING_PRODUCT,
+            FlowState.BUILD_PACK_READY,
+        }:
+            self.back_to_product_button.setText("Back to Answer")
+        elif origin is self.settings_shell:
+            self.back_to_product_button.setText("Back to Settings")
+        else:
+            self.back_to_product_button.setText("Back")
         self.shell_stack.setCurrentWidget(self.technical_shell)
         self.body_splitter.setSizes(self._horizontal_split(self.width()))
-        self.status_message.setText(
-            "Technical details · Complete deterministic evidence remains local"
-        )
+        self.status_message.setText("Technical Evidence · expert view")
 
     @Slot()
     def close_technical_details(self) -> None:
+        destination = self._technical_origin or self.product_shell
+        self.shell_stack.setCurrentWidget(destination)
+        self.status_message.setText("Ready")
+
+    def _set_flow_state(
+        self, state: FlowState, *, new_workflow: bool = False
+    ) -> None:
+        self.flow.transition(state, new_workflow=new_workflow)
+        page = {
+            FlowState.NO_TARGET: self.scan_page,
+            FlowState.TARGET_SELECTED: self.scan_page,
+            FlowState.SCANNING: self.scanning_page,
+            FlowState.ANSWER_READY: self.answer_page,
+            FlowState.PREPARING_PRODUCT: self.prepare_page,
+            FlowState.BUILD_PACK_READY: self.build_pack_page,
+            FlowState.BUILD_SESSION_ACTIVE: self.build_pack_page,
+        }[state]
+        self.flow_stack.setCurrentWidget(page)
         self.shell_stack.setCurrentWidget(self.product_shell)
-        self.status_message.setText(
-            "Local-first · Read-only target · No execution, move, or delete"
+        self.run_button.setEnabled(
+            state == FlowState.TARGET_SELECTED and bool(self.target_selector.path())
         )
 
-    def _set_workflow_step(
-        self,
-        step: int,
-        title: str,
-        body: str,
-        *,
-        action_key: str,
-        action_text: str,
-        action_enabled: bool = True,
-        status: str = "primary",
-    ) -> None:
-        self._workflow_step = step
-        self._workflow_action_key = action_key
-        self.workflow_step_badge.set_status(status, f"STEP {step} OF 5")
-        self.workflow_step_title.setText(title)
-        self.workflow_step_body.setText(body)
-        self.workflow_action_button.setText(action_text)
-        self.workflow_action_button.setEnabled(action_enabled)
+    @Slot()
+    def open_history(self) -> None:
+        self.refresh_report_history()
+        self.shell_stack.setCurrentWidget(self.history_shell)
+        self.status_message.setText("History · previous completed scans")
 
     @Slot()
-    def _run_workflow_action(self) -> None:
-        if self._workflow_action_key == "choose-folder":
-            self.target_selector.browse_button.click()
-        elif self._workflow_action_key == "run-audit":
-            self.start_scan()
-        elif self._workflow_action_key == "view-report":
-            self.view_full_report()
-        elif self._workflow_action_key == "prepare-product":
-            self.prepare_leading_product()
-        elif self._workflow_action_key == "open-reports":
-            self.primary_tabs.setCurrentIndex(2)
+    def open_settings(self) -> None:
+        self.shell_stack.setCurrentWidget(self.settings_shell)
+        self.status_message.setText("Settings")
+
+    @Slot()
+    def close_secondary_surface(self) -> None:
+        self.shell_stack.setCurrentWidget(self.product_shell)
+        self.status_message.setText("Ready")
+
+    @Slot()
+    def toggle_update_diagnostics(self) -> None:
+        visible = not self.update_diagnostic_label.isVisible()
+        self.update_diagnostic_label.setVisible(visible)
+        self.update_diagnostics_button.setText(
+            "Hide technical diagnostics" if visible else "Show technical diagnostics"
+        )
+
+    @Slot()
+    def toggle_other_opportunities(self) -> None:
+        visible = not self.other_opportunities_list.isVisible()
+        self.other_opportunities_list.setVisible(visible)
+        self.other_opportunities_button.setText(
+            "Hide other opportunities" if visible else "Other opportunities"
+        )
+
+    @Slot()
+    def return_to_answer(self) -> None:
+        if self.bundle is not None:
+            self._set_flow_state(FlowState.ANSWER_READY)
+
+    @Slot()
+    def open_reusable_assets_evidence(self) -> None:
+        self.open_technical_details()
+        self.tabs.setCurrentWidget(self.acquisition)
 
     @Slot()
     @Slot(int)
@@ -1229,25 +1468,27 @@ class RelicWindow(QMainWindow):
     # -- scanning ---------------------------------------------------------
 
     def _target_changed(self, text: str) -> None:
-        if text.strip():
-            self.status_message.setText(f"Ready to scan {Path(text.strip()).name}")
-            if self._scan_thread is None and self.bundle is None:
-                self._set_workflow_step(
-                    2,
-                    "Run the audit",
-                    "The recommended Product Resurrection scan is selected. "
-                    "Advisory reasoning is optional; Sonnet + medium is the safest starting point.",
-                    action_key="run-audit",
-                    action_text="Run audit",
-                )
-        elif self._scan_thread is None and self.bundle is None:
-            self._set_workflow_step(
-                1,
-                "Choose a folder",
-                "Select the project, repository, archive collection, or loose files to appraise.",
-                action_key="choose-folder",
-                action_text="Choose folder",
-            )
+        selected = text.strip()
+        self.source_reassurance.setVisible(bool(selected))
+        if self._scan_thread is not None:
+            return
+        if selected:
+            chosen = Path(selected).expanduser().resolve()
+            if self.bundle is not None and chosen != self.bundle.audit.target.resolve():
+                self.bundle = None
+                self.report_directory = None
+                self._prepared_build_pack = None
+                self._exported_build_pack = None
+                self.results_empty.setVisible(True)
+                self.results_content.setVisible(False)
+            self.status_message.setText(f"Ready to scan {chosen.name}")
+            self._set_flow_state(FlowState.TARGET_SELECTED, new_workflow=True)
+        else:
+            self.bundle = None
+            self._prepared_build_pack = None
+            self._exported_build_pack = None
+            self.status_message.setText("Choose a folder to begin")
+            self._set_flow_state(FlowState.NO_TARGET, new_workflow=True)
 
     @Slot()
     def start_scan(self) -> None:
@@ -1297,6 +1538,8 @@ class RelicWindow(QMainWindow):
 
         self.bundle = None
         self.report_directory = None
+        self._prepared_build_pack = None
+        self._exported_build_pack = None
         self.export_button.setEnabled(False)
         self.open_button.setEnabled(False)
         self.view_full_report_button.setEnabled(False)
@@ -1305,15 +1548,8 @@ class RelicWindow(QMainWindow):
         self.report_badge.set_status("idle", "NOT EXPORTED")
         self.report_label.setText("Reports have not been exported yet.")
         self._set_config_enabled(False)
-        self._set_workflow_step(
-            3,
-            "Audit in progress",
-            "Relic is reading and classifying the target. The target remains unchanged.",
-            action_key="scan-running",
-            action_text="Audit running",
-            action_enabled=False,
-            status="running",
-        )
+        self.scanning_title.setText(f"Analyzing {target.name}…")
+        self._set_flow_state(FlowState.SCANNING)
         if self.use_llm.isChecked() and self._claude_max_selected():
             try:
                 save_provider_health(
@@ -1358,7 +1594,11 @@ class RelicWindow(QMainWindow):
             self.scan_panel.set_running("Cancelling…", None)
 
     def _set_config_enabled(self, enabled: bool) -> None:
-        self.run_button.setEnabled(enabled)
+        self.run_button.setEnabled(
+            enabled
+            and self.flow.state == FlowState.TARGET_SELECTED
+            and bool(self.target_selector.path())
+        )
         self.target_selector.setEnabled(enabled)
         self.mode.setEnabled(enabled)
         self.include_hidden.setEnabled(enabled)
@@ -1402,42 +1642,20 @@ class RelicWindow(QMainWindow):
         self._auto_export_reports(bundle)
         self.refresh_report_history()
         self.tabs.setCurrentWidget(self.overview)
-        self.primary_tabs.setCurrentIndex(1)
-        can_open_report = self._full_report_path() is not None
-        self._set_workflow_step(
-            4,
-            "Review the answer",
-            "Start with the top opportunity and ‘What should happen next.’ "
-            "Open Technical details only when you need to verify evidence.",
-            action_key="view-report",
-            action_text="View full report" if can_open_report else "Report unavailable",
-            action_enabled=can_open_report,
-            status="active",
-        )
+        self._set_flow_state(FlowState.ANSWER_READY)
+        self.status_message.setText(f"Answer ready · {bundle.audit.target.name}")
 
     @Slot(str)
     def _scan_failed(self, message: str) -> None:
         self._elapsed_timer.stop()
         if message == "__cancelled__":
             self.scan_panel.set_cancelled()
-            self._set_workflow_step(
-                2,
-                "Run the audit",
-                "The previous scan was cancelled. Adjust the settings or run it again.",
-                action_key="run-audit",
-                action_text="Run audit",
-                status="warning",
-            )
+            self._set_flow_state(FlowState.TARGET_SELECTED)
+            self.status_message.setText("Scan cancelled · source was not modified")
             return
         self.scan_panel.set_failed(f"Audit failed: {message}")
-        self._set_workflow_step(
-            2,
-            "Fix the scan error and retry",
-            message,
-            action_key="run-audit",
-            action_text="Retry audit",
-            status="failed",
-        )
+        self._set_flow_state(FlowState.TARGET_SELECTED)
+        self.status_message.setText("Scan failed · review the error and retry")
         QMessageBox.critical(self, "Relic audit failed", message)
 
     @Slot()
@@ -1567,30 +1785,30 @@ class RelicWindow(QMainWindow):
         )
 
     def _load_plain_english_results(self, bundle: DashboardBundle) -> None:
-        summary = summarize_dashboard_bundle(bundle)
-        self.found_card.set_body(summary["found"])
-        self.valuable_card.set_body(summary["valuable"])
-        self.risk_card.set_body(summary["risky"])
-        self.next_card.set_body(summary["next"])
+        answer = focused_answer(bundle)
+        self.answer_conclusion.setText(str(answer["conclusion"]))
+        self.answer_detail.setText(str(answer["detail"]))
+        self.best_opportunity_card.title_label.setText("BEST OPPORTUNITY")
+        self.best_opportunity_card.set_body(
+            f"{answer['opportunity_title']}\n\n{answer['opportunity_summary']}"
+        )
+        self.found_card.set_body(str(answer["reusable"]))
+        self.risk_card.set_body(str(answer["concerns"]))
+        self.next_card.set_body(str(answer["recommendation"]))
         self.results_empty.setVisible(False)
         self.results_content.setVisible(True)
-        opportunities = bundle.discovery.opportunities if bundle.discovery else []
-        self.opportunity_heading.setVisible(bool(opportunities))
-        for index, card in enumerate(self.opportunity_cards):
-            if index >= len(opportunities):
-                card.setVisible(False)
-                continue
-            opportunity = opportunities[index]
-            card.title_label.setText(
-                str(opportunity.get("title") or "Untitled opportunity")
+        opportunities = list(answer["opportunities"])
+        self.other_opportunities_list.clear()
+        for index, opportunity in enumerate(opportunities[1:], start=2):
+            confidence = opportunity.get("evidence_strength") or "exploratory"
+            item = QListWidgetItem(
+                f"{index}. {opportunity.get('title') or 'Untitled opportunity'}\n"
+                f"   {str(confidence).title()} confidence"
             )
-            card.set_body(
-                f"{opportunity.get('summary', '')}\n\n"
-                f"Evidence: {opportunity.get('evidence_strength', 'exploratory')} · "
-                f"Score: {opportunity.get('overall_score', '—')} · "
-                f"Effort: {opportunity.get('extraction_effort', 'unknown')}"
-            )
-            card.setVisible(True)
+            item.setData(Qt.ItemDataRole.UserRole, opportunity.get("opportunity_id"))
+            self.other_opportunities_list.addItem(item)
+        self.other_opportunities_button.setVisible(len(opportunities) > 1)
+        self.other_opportunities_list.setVisible(False)
         has_opportunity = bool(opportunities)
         evidence_ready = bool(
             has_opportunity
@@ -1641,6 +1859,35 @@ class RelicWindow(QMainWindow):
             or not self.bundle.discovery.opportunities
         ):
             return
+        answer = focused_answer(self.bundle)
+        self.prepare_product_card.set_body(
+            f"{answer['opportunity_title']}\n\n{answer['opportunity_summary']}"
+        )
+        self.prepare_reuse_card.set_body(str(answer["reusable"]))
+        missing = answer["missing"]
+        self.prepare_missing_card.set_body(
+            "\n".join(f"• {item}" for item in missing)
+            if missing
+            else "No MVP-critical missing component was identified."
+        )
+        self.prepare_mvp_card.set_body(str(answer["mvp"]))
+        risks = answer["risks"]
+        self.prepare_risks_card.set_body(
+            "\n".join(f"• {item}" for item in risks)
+            if risks
+            else "Exact asset provenance and approvals remain required."
+        )
+        self._set_flow_state(FlowState.PREPARING_PRODUCT)
+        self.status_message.setText("Review the product definition before creating a Build Pack")
+
+    @Slot()
+    def create_build_pack(self) -> None:
+        if (
+            self.bundle is None
+            or self.bundle.discovery is None
+            or not self.bundle.discovery.opportunities
+        ):
+            return
         service = BuildPackService(self.bundle.entitlement)
         opportunity = self.bundle.discovery.opportunities[0]
         try:
@@ -1652,36 +1899,45 @@ class RelicWindow(QMainWindow):
             )
             output = (self.report_directory or self.reports_root) / "Build Packs"
             dialog = BuildPackDialog(service, pack, output, self)
-            self._set_workflow_step(
-                5,
-                "Prepare or export the outcome",
-                "Review the Build Pack, approve exact assets, then export a builder handoff.",
-                action_key="prepare-product",
-                action_text="Continue preparing product",
-                status="active",
-            )
             if dialog.exec():
                 exported = dialog.export_selected()
-                self.status_message.setText(
-                    f"Build Pack exported · {exported.directory}"
+                self._build_pack_service = service
+                self._prepared_build_pack = pack
+                self._exported_build_pack = exported
+                self.open_build_pack_button.setEnabled(True)
+                self.start_assisted_build_button.setEnabled(True)
+                self.build_pack_summary.set_body(
+                    "Product brief\nMVP scope\nArchitecture\nImplementation plan\n"
+                    "Reusable asset manifest\nAcceptance criteria\nBuilder handoff\n\n"
+                    f"Verified export: {exported.directory}"
                 )
-                self._set_workflow_step(
-                    5,
-                    "Build in a managed workspace",
-                    "Follow the numbered supervisor steps, approve exact capabilities, "
-                    "then inspect every changed file before accepting a candidate.",
-                    action_key="prepare-product",
-                    action_text="Continue assisted build",
-                    status="active",
-                )
-                AssistedBuildDialog(
-                    self.bundle.entitlement,
-                    exported.directory,
-                    output.parent / "Build Sessions",
-                    self,
-                ).exec()
+                self._set_flow_state(FlowState.BUILD_PACK_READY)
+                self.status_message.setText(f"Build Pack ready · {exported.directory}")
         except (PermissionError, ValueError, OSError) as exc:
-            QMessageBox.warning(self, "Prepare this product", str(exc))
+            QMessageBox.warning(self, "Create Build Pack", str(exc))
+
+    @Slot()
+    def open_exported_build_pack(self) -> None:
+        if self._exported_build_pack is not None:
+            QDesktopServices.openUrl(
+                QUrl.fromLocalFile(str(self._exported_build_pack.directory))
+            )
+
+    @Slot()
+    def start_assisted_build(self) -> None:
+        if self.bundle is None or self._exported_build_pack is None:
+            return
+        output = (self.report_directory or self.reports_root) / "Build Sessions"
+        self._set_flow_state(FlowState.BUILD_SESSION_ACTIVE)
+        try:
+            AssistedBuildDialog(
+                self.bundle.entitlement,
+                self._exported_build_pack.directory,
+                output,
+                self,
+            ).exec()
+        finally:
+            self._set_flow_state(FlowState.BUILD_PACK_READY)
 
     def _auto_export_reports(self, bundle: DashboardBundle) -> None:
         """Persist a completed scan in Relic's stable report history."""
@@ -1731,15 +1987,6 @@ class RelicWindow(QMainWindow):
         report = self._full_report_path()
         if report is not None:
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(report)))
-            self._set_workflow_step(
-                5,
-                "Choose the outcome",
-                "Use Reports to reopen this audit, export another copy, or prepare "
-                "an eligible product when Premium is available.",
-                action_key="open-reports",
-                action_text="Open saved reports",
-                status="active",
-            )
 
     @Slot()
     def refresh_report_history(self) -> None:
@@ -1855,6 +2102,7 @@ class RelicWindow(QMainWindow):
         self._update_check_manual = manual
         self.update_button.setText("Checking…")
         self.update_button.setEnabled(False)
+        self.update_status_label.setText("Checking the signed stable update channel…")
         self.status_message.setText("Checking the stable Relic Auditor update channel…")
 
         thread = QThread(self)
@@ -1889,6 +2137,9 @@ class RelicWindow(QMainWindow):
             self.status_message.setText(
                 f"Update available · v{__version__} → v{manifest.version}"
             )
+            self.update_status_label.setText(
+                f"Relic Auditor {manifest.version} is available and its manifest passed validation."
+            )
             if self._update_check_manual:
                 self._show_update_dialog()
             return
@@ -1896,6 +2147,9 @@ class RelicWindow(QMainWindow):
         self.update_button.setText("Up to date")
         self.update_button.setToolTip("Click to check the stable channel again.")
         self.status_message.setText(f"Relic Auditor v{__version__} is up to date")
+        self.update_status_label.setText(
+            f"Relic Auditor {__version__} is the newest verified stable version."
+        )
         if self._update_check_manual:
             QMessageBox.information(
                 self,
@@ -1911,13 +2165,18 @@ class RelicWindow(QMainWindow):
             pass
         self.update_button.setText("Check updates")
         self.update_button.setEnabled(True)
+        self._last_update_diagnostic = message
+        self.update_diagnostic_label.setText(message)
+        self.update_status_label.setText(
+            f"Relic Auditor {__version__} is installed. Automatic updates are not available for this build yet."
+        )
         self.status_message.setText("Update check unavailable · Relic remains ready offline")
         if self._update_check_manual:
             QMessageBox.warning(
                 self,
-                "Update check unavailable",
-                "Relic could not verify the stable update channel. Nothing was "
-                f"downloaded or installed.\n\n{message}",
+                "UPDATES UNAVAILABLE",
+                f"Relic Auditor {__version__} is installed.\n\n"
+                "Automatic updates are not available for this build yet.",
             )
 
     @Slot()
@@ -1989,11 +2248,16 @@ class RelicWindow(QMainWindow):
     @Slot(str)
     def _update_download_failed(self, message: str) -> None:
         self._prepared_update = None
+        self._last_update_diagnostic = message
+        self.update_diagnostic_label.setText(message)
+        self.update_status_label.setText(
+            "The candidate update was blocked because download or publisher verification did not pass."
+        )
         self.status_message.setText("Update blocked · installer verification did not pass")
         if self._update_dialog is not None:
             self._update_dialog.set_error(
                 "Relic did not run the installer because download or publisher "
-                f"verification failed.\n\n{message}"
+                "verification failed. Technical details are available in Settings."
             )
 
     @Slot()
@@ -2016,9 +2280,18 @@ class RelicWindow(QMainWindow):
         try:
             launch_prepared_update(prepared)
         except (OSError, RuntimeError) as exc:
+            self._last_update_diagnostic = f"{type(exc).__name__}: {exc}"
+            self.update_diagnostic_label.setText(self._last_update_diagnostic)
             if self._update_dialog is not None:
-                self._update_dialog.set_error(str(exc))
-            QMessageBox.critical(self, "Update could not start", str(exc))
+                self._update_dialog.set_error(
+                    "The verified installer could not be started. Technical details "
+                    "are available in Settings."
+                )
+            QMessageBox.critical(
+                self,
+                "Update could not start",
+                "The installer was not started. Relic remains on the current version.",
+            )
             return
         if self._update_dialog is not None:
             self._update_dialog.accept()
@@ -2055,7 +2328,7 @@ class RelicWindow(QMainWindow):
 #: Keeps the window alive when the caller already owns the QApplication and we
 #: return without entering an event loop; otherwise Python would collect the
 #: window the moment this function returns.
-_OPEN_WINDOWS: list["RelicWindow"] = []
+_OPEN_WINDOWS: list[RelicWindow] = []
 
 
 def launch_dashboard(

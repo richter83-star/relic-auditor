@@ -4,7 +4,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QLineEdit
 
 from relic_auditor.audit import audit_estate
 from relic_auditor.build_packs import BuildPackService
@@ -92,13 +92,16 @@ def test_supervisor_has_five_steps_and_no_preapproved_capabilities(tmp_path: Pat
         app.processEvents()
 
 
-def test_unprovisioned_license_ui_is_honest_and_disabled() -> None:
+def test_plan_ui_hides_unprovisioned_activation_infrastructure() -> None:
     app = _app()
     dialog = LicenseDialog(FREE_ENTITLEMENT)
     assert dialog.badge.text() == "PLAN: FREE"
-    assert "not provisioned" in dialog.details.text()
-    assert not dialog.activate_button.isEnabled()
-    assert not dialog.deactivate_button.isEnabled()
+    assert "reports and history" in dialog.details.text()
+    assert "COMING SOON" in dialog.pro_card.title_label.text()
+    assert "COMING SOON" in dialog.premium_card.title_label.text()
+    assert dialog.findChildren(QLineEdit) == []
+    assert not hasattr(dialog, "activate_button")
+    assert not hasattr(dialog, "deactivate_button")
     dialog.deleteLater()
     app.processEvents()
 

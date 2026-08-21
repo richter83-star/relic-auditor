@@ -30,6 +30,7 @@ from relic_auditor.audit import audit_estate  # noqa: E402
 from relic_auditor.dashboard import components, theme  # noqa: E402
 from relic_auditor.dashboard.core import DashboardBundle, DashboardOptions  # noqa: E402
 from relic_auditor.dashboard.qt_app import RelicWindow  # noqa: E402
+from relic_auditor.dashboard.flow import FlowState  # noqa: E402
 from relic_auditor.llm.schemas import LLMReasoningResult  # noqa: E402
 
 
@@ -608,17 +609,24 @@ def test_cancel_leaves_target_unchanged(window, app) -> None:
 
 def test_keyboard_focus_reaches_primary_controls(window, app) -> None:
     _laid_out(window, app, 1600, 900)
-    focusable = [
-        window.target_selector.field,
+    advanced = [
         window.mode,
         window.include_hidden,
         window.use_llm,
-        window.run_button,
     ]
-    for widget in focusable:
+    for widget in advanced:
         assert widget.focusPolicy() != Qt.FocusPolicy.NoFocus, (
             f"{widget.accessibleName() or widget} is not keyboard reachable"
         )
+        widget.setFocus()
+        app.processEvents()
+        assert widget.hasFocus()
+
+    window.close_technical_details()
+    window.target_selector.set_path(tempfile.gettempdir())
+    app.processEvents()
+    for widget in (window.target_selector.field, window.run_button):
+        assert widget.focusPolicy() != Qt.FocusPolicy.NoFocus
         widget.setFocus()
         app.processEvents()
         assert widget.hasFocus()
@@ -663,7 +671,7 @@ def test_bundle_loads_into_every_view(window, app) -> None:
 def test_all_original_tabs_preserved(window) -> None:
     titles = [window.tabs.tabText(i).split(" (")[0] for i in range(window.tabs.count())]
     for expected in (
-        "Overview",
+        "Evidence Summary",
         "System Map",
         "Technical Truth",
         "Recommended Actions",
@@ -712,37 +720,41 @@ def test_launch_dashboard_retains_its_window(app) -> None:
     )
 
 
-def test_default_product_shell_has_exactly_three_sections(app) -> None:
+def test_default_product_shell_is_focused_scan_state(app) -> None:
     win = RelicWindow()
     win.show()
     app.processEvents()
     try:
         assert win.shell_stack.currentWidget() is win.product_shell
-        assert [
-            win.primary_tabs.tabText(index)
-            for index in range(win.primary_tabs.count())
-        ] == ["Scan", "Results", "Reports"]
+        assert not hasattr(win, "primary_tabs")
+        assert win.flow_stack.count() == 5
+        assert win.flow_stack.currentWidget() is win.scan_page
+        assert win.flow.state is FlowState.NO_TARGET
         assert not win.provider_card.isVisible()
         assert not win.tabs.isVisible()
         assert win.mode.currentData() == "full"
-        assert win.workflow_step_badge.text() == "STEP 1 OF 5"
-        assert win.workflow_action_button.text() == "Choose folder"
+        assert win.run_button.text() == "SCAN THIS FOLDER"
+        assert not win.run_button.isEnabled()
+        assert win.history_button.isVisible()
+        assert win.settings_button.isVisible()
+        assert not win.update_button.isVisible()
     finally:
         win.close()
         win.deleteLater()
         app.processEvents()
 
 
-def test_guided_workflow_advances_when_target_is_selected(app, tmp_path) -> None:
+def test_focused_flow_advances_when_target_is_selected(app, tmp_path) -> None:
     win = RelicWindow()
     win.show()
     app.processEvents()
     try:
         win.target_selector.set_path(str(tmp_path))
         app.processEvents()
-        assert win.workflow_step_badge.text() == "STEP 2 OF 5"
-        assert win.workflow_step_title.text() == "Run the audit"
-        assert win.workflow_action_button.text() == "Run audit"
+        assert win.flow.state is FlowState.TARGET_SELECTED
+        assert win.flow_stack.currentWidget() is win.scan_page
+        assert win.run_button.isEnabled()
+        assert win.source_reassurance.isVisible()
     finally:
         win.close()
         win.deleteLater()

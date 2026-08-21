@@ -1,8 +1,8 @@
-# Relic Auditor 1.0.1 RC — Windows installer
+# Relic Auditor 1.0.2 RC — Windows installer
 
-`Relic-Auditor-Setup-1.0.1-x64.exe` installs the reconciled Relic Auditor 1.0.1 release candidate for the current Windows user.
+`Relic-Auditor-Setup-1.0.2-x64.exe` installs the focused-flow Relic Auditor 1.0.2 release candidate for the current Windows user.
 
-This candidate unifies the validated v0.12 product line with Resurrection Mode and the later Technical Truth corrections. It remains an internal release candidate until the exact frozen-source and Windows lifecycle gates complete successfully.
+This candidate preserves the validated v1.0.1 engines and security boundaries while simplifying the desktop journey to Scan → Answer → Prepare → Build. It remains an internal release candidate until the exact frozen-source and Windows lifecycle gates complete successfully.
 
 ## What it installs
 

@@ -29,18 +29,28 @@ Resurrection evaluates whether a partially built codebase contains a substantive
 
 The reconciliation history and validation rules are documented in [docs/v1.0.1-reconciliation.md](docs/v1.0.1-reconciliation.md). Release changes are summarized in [docs/v1.0.1-release-notes.md](docs/v1.0.1-release-notes.md), with upgrade guidance in [docs/v1.0.1-upgrade.md](docs/v1.0.1-upgrade.md). The public release is available at [GitHub Release v1.0.1](https://github.com/richter83-star/relic-auditor/releases/tag/v1.0.1).
 
+## Development candidate: v1.0.2 Focused Flow
+
+v1.0.2 preserves the v1.0.1 engines and security boundaries while replacing the desktop's permanent Scan / Results / Reports tabs with one state-driven journey:
+
+**Scan → Answer → Prepare → Build**
+
+History and Settings are quiet header utilities. Technical Evidence remains a complete expert console, but appears only when the user deliberately asks for proof or advanced controls. See [docs/focused-flow.md](docs/focused-flow.md) and [docs/v1.0.2-release-notes.md](docs/v1.0.2-release-notes.md).
+
 ## Code signing policy
 
 Relic Auditor's Windows signing governance is documented in [docs/code-signing-policy.md](docs/code-signing-policy.md). The public v1.0.1 installer remains unsigned and manual-install only. The preferred future route is SignPath Foundation's open-source signing program, subject to provider approval; automatic updating remains fail-closed until trusted signing and stable-manifest requirements are satisfied.
 
 ## Product flow
 
-The desktop experience uses progressive disclosure:
+The desktop answers one question at a time and exposes one dominant action per primary screen:
 
-1. **Scan** — choose a folder and run the appraisal.
-2. **Results** — see what Relic found, what is valuable, what is incomplete or risky, and what should happen next.
-3. **Reports** — reopen prior scans and exported reports.
-4. **Technical details** — inspect System Map, raw evidence, provider diagnostics, architecture data, and expert controls when needed.
+1. **Scan** — choose a folder and select **Scan this folder**. Advanced controls stay behind Options.
+2. **Answer** — read the plain-English conclusion, strongest opportunity, reusable foundation, main concerns, and recommended next move.
+3. **Prepare** — confirm the product concept, reusable assets, missing work, MVP, and meaningful risks.
+4. **Build Pack** — review and export the deterministic handoff, then enter the approval-gated Assisted Build Supervisor when entitled.
+
+**History** reopens previous scans without interrupting the active workflow. **Settings** contains plan, update, storage, and advanced-configuration entry points. **Technical Evidence** preserves System Map, Technical Truth, raw evidence, provider diagnostics, and expert controls without competing with the normal answer.
 
 User-facing result concepts are **Opportunities**, **Reusable Assets**, **System Map**, and **Recommended Actions**.
 
@@ -186,6 +196,8 @@ Production defaults to Free and there is no CLI flag that promotes an entitlemen
 - **Premium** — Build Packs and approved assisted-build capabilities
 
 Signed entitlements and OS credential storage are documented in [docs/licensing.md](docs/licensing.md) and [docs/entitlements-and-privacy.md](docs/entitlements-and-privacy.md).
+
+Production paid activation is not provisioned in v1.0.2. The desktop therefore presents Free, Pro coming soon, and Premium coming soon without exposing inactive license-key controls; the underlying entitlement boundary continues to fail closed.
 
 ## Optional LLM reasoning
 

@@ -114,18 +114,16 @@ def test_05_cancel_leaves_no_export(tmp_path: Path):
     app.processEvents()
 
 
-def test_06_three_top_tabs_and_technical_details_remain_collapsed(tmp_path: Path):
+def test_06_focused_flow_replaces_three_tabs_and_keeps_evidence_collapsed(tmp_path: Path):
     app = _app()
     status = {"ready": False, "executable_found": False, "logged_in": False}
     with patch("relic_auditor.dashboard.qt_app.claude_max_status", return_value=status):
         window = RelicWindow()
-    assert window.primary_tabs.count() == 3
-    assert [window.primary_tabs.tabText(index) for index in range(3)] == [
-        "Scan",
-        "Results",
-        "Reports",
-    ]
+    assert not hasattr(window, "primary_tabs")
+    assert window.flow_stack.count() == 5
+    assert window.flow_stack.currentWidget() is window.scan_page
     assert window.shell_stack.currentWidget() is window.product_shell
     assert not window.prepare_product_button.isVisible()
+    assert not window.tabs.isVisible()
     window.close()
     app.processEvents()
