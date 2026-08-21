@@ -59,7 +59,7 @@ def resurrect_estate(
     cfg = config or ResurrectionConfig()
     cfg.validate()
     subgraphs = extract_substantive_subgraphs(audit, technical_truth)
-    gate = evaluate_salvability_gate = evaluate_salvageability_gate(subgraphs, cfg)
+    gate = evaluate_salvageability_gate(subgraphs, cfg)
     market_provider = MarketIntelligenceProvider(offline=cfg.offline)
 
     if gate.bypass_llm or gate.verdict == "TOSS_IT":
