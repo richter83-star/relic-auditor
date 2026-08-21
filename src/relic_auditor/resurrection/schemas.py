@@ -12,8 +12,20 @@ class ResurrectionConfig:
     llm_profile: str | None = None
     offline: bool = True
     max_input_chars: int = 40_000
+    max_output_tokens: int = 2_000
+    timeout_seconds: float = 90.0
     require_citation_grounding: bool = True
     include_market_facts: bool = True
+
+    def validate(self) -> None:
+        if self.min_subgraph_nodes <= 0:
+            raise ValueError("minimum subgraph nodes must be positive")
+        if self.min_surface_anchors < 0:
+            raise ValueError("minimum surface anchors cannot be negative")
+        if self.max_input_chars <= 0 or self.max_output_tokens <= 0:
+            raise ValueError("Resurrection LLM limits must be positive")
+        if self.timeout_seconds <= 0:
+            raise ValueError("Resurrection LLM timeout must be positive")
 
 
 @dataclass
