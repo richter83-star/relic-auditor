@@ -1,0 +1,26 @@
+{
+  "schema": "relic-auditor-publication-proof/v1",
+  "release": "v1.0.1",
+  "release_url": "https://github.com/richter83-star/relic-auditor/releases/tag/v1.0.1",
+  "tag_target": "300d4efeb6747671ade474e51fed8e45b229c757",
+  "validation_run": "32453647140",
+  "validation_conclusion": "success",
+  "artifact_id": "9436635474",
+  "artifact_zip_sha256": "267b3d59e7ec54391bf2a475e2a1c66f04046bd0be4842c9e07328594469083e",
+  "source_sha256": "800e3bd250b81475542c150bcd89d537ad46dc26f8840a18ea071f500770af1b",
+  "installer_sha256": "56c3e20c9cdcf8e2a6beae76b0e05d928e1af0002e92240c83d1ace773069d10",
+  "installer_size": 73928624,
+  "authenticode": "NotSigned",
+  "automatic_updater": "disabled_fail_closed_unsigned",
+  "branch_protection": "requires_repository_admin_configuration",
+  "publication_workflow_run": "32465393034",
+  "publication_branch_head": "2e4cd261a7ded52aa6d51a754641eaabb7c992f5",
+  "published_at": "2026-08-21T08:55:24Z",
+  "assets": [
+    "Relic-Auditor-Setup-1.0.1-x64.exe",
+    "relic-auditor-1.0.1.zip",
+    "release-manifest.json",
+    "SHA256SUMS.txt",
+    "INSTALLER-README.md"
+  ]
+}
