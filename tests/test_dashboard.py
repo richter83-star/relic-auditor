@@ -23,6 +23,11 @@ from relic_auditor.dashboard import (
 )
 
 
+def _resolved_paths(paths: list[Path]) -> list[Path]:
+    """Canonicalize Windows short/long aliases before membership assertions."""
+    return [path.resolve() for path in paths]
+
+
 class DashboardCoreTests(unittest.TestCase):
     def _estate(self, root: Path) -> Path:
         estate = root / "estate"
@@ -112,8 +117,13 @@ class DashboardCoreTests(unittest.TestCase):
             self.assertIsNone(bundle.technical_truth)
             output = root / "acquisition-reports"
             written = export_dashboard_bundle(bundle, output)
-            self.assertIn(output / "capability_acquisition_report.md", written)
-            self.assertIn(output / "capability_acquisition_inventory.json", written)
+            resolved = _resolved_paths(written)
+            self.assertIn(
+                (output / "capability_acquisition_report.md").resolve(), resolved
+            )
+            self.assertIn(
+                (output / "capability_acquisition_inventory.json").resolve(), resolved
+            )
 
     def test_export_adds_advisory_cleanup_plan_and_preserves_target(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -138,7 +148,9 @@ class DashboardCoreTests(unittest.TestCase):
                 if path.is_file()
             }
             self.assertEqual(before, after)
-            self.assertIn(output / "cleanup-plan.json", written)
+            self.assertIn(
+                (output / "cleanup-plan.json").resolve(), _resolved_paths(written)
+            )
             plan = json.loads(
                 (output / "cleanup-plan.json").read_text(encoding="utf-8")
             )
@@ -240,7 +252,9 @@ class DashboardCoreTests(unittest.TestCase):
                 if path.is_file()
             }
             self.assertEqual(before, after)
-            self.assertIn(destination / "estate-report.md", written)
+            self.assertIn(
+                (destination / "estate-report.md").resolve(), _resolved_paths(written)
+            )
             self.assertTrue((destination / "technical_truth_report.md").is_file())
 
     def test_cli_explains_missing_gui_extra(self) -> None:
