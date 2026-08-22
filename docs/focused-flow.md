@@ -13,7 +13,10 @@ The redesign changes information architecture, not the evidence engines. Scanned
 | `NO_TARGET` / `TARGET_SELECTED` | What should Relic analyze? | Scan this folder |
 | `SCANNING` | What is happening? | None; cancellation remains available |
 | `ANSWER_READY` | What do I have, is it valuable, and what should I do? | Prepare this product |
-| `PREPARING_PRODUCT` | What exactly are we about to build? | Create Build Pack |
+| `OPPORTUNITY_CHOOSER` | What other credible product directions did Relic find? | Select this opportunity |
+| `OPPORTUNITY_SELECTED` | What does the selected product direction mean? | Prepare this product |
+| `PREPARE_PRODUCT` | What exactly are we about to build? | Create Build Pack |
+| `BUILD_PACK_GATE` | What does Premium add? | View Premium |
 | `BUILD_PACK_READY` | What can I hand to a builder? | Start Assisted Build |
 | `BUILD_SESSION_ACTIVE` | What exact approved action happens next? | Current Supervisor action |
 
@@ -21,27 +24,27 @@ Selecting a different target intentionally starts a new workflow. Completed repo
 
 ## Answer contract
 
-The Answer begins with a plain-English conclusion. It then shows the strongest opportunity, the reusable foundation, the work needing attention, and the recommended next move. Counts support these statements; they do not replace them.
+The Answer begins with a plain-English conclusion. It then emphasizes one product opportunity, a compact reusable-assets/attention summary, and the recommended next move.
 
-Other opportunities, exports, and Technical Evidence are secondary. Raw evidence and provider diagnostics are not visible by default.
+Other opportunities opens a lightweight ranked chooser. Selecting a direction updates Answer and Prepare as view state over the same scan. A contextual **Why this?** link is the deliberate route from a product direction into its Technical Evidence.
 
 ## Secondary surfaces
 
 - **History** lists prior completed scans and opens from the header. It contains no current-workflow banner or global primary action.
-- **Settings** contains Scan, Updates, Plan, Storage, and About categories. Update checks and plan information are not permanent header controls.
+- **Settings** contains Scan, Reasoning, Updates, Plan, Storage, and About categories. Scan depth and provider setup apply to future scans.
 - **Technical Evidence** is the expert console. Its first tab is **Evidence Summary**, followed by Opportunities, Reusable Assets, Recommended Actions, System Map, Technical Truth, Reasoning, Duplicates, and Files.
 
 Technical Evidence remembers its origin. Returning from evidence restores the originating Answer, Prepare, Build Pack, or Settings surface without discarding the active workflow.
 
 ## Evidence disclosure
 
-Normal users receive the decision. Experts deliberately request the proof through contextual links such as View technical evidence and Review reusable assets. Advanced scan controls and provider health remain available in the expert surface and are hidden during normal Scan and Answer use.
+Normal users receive the decision. Experts deliberately request the proof through contextual links such as Why this?, View technical evidence, and Review reusable assets. Technical Evidence contains completed evidence and reasoning results, never scan configuration or provider setup/login controls.
 
 ## Plan presentation
 
 The signed entitlement engine remains fail-closed. Because paid production activation is not provisioned, the v1.0.2 plan dialog contains no license-key field, Activate button, Deactivate button, or engineering placeholder. It presents Free and marks Pro and Premium as coming soon.
 
-UI simplification never grants a capability. Free, Pro, and Premium enforcement remains in the domain services and cannot be changed by manipulating widgets.
+Free, Pro, and Premium users can inspect Answer, choose an opportunity, and review the Prepare screen. Premium is checked only when **Create Build Pack** is requested. UI simplification never grants that capability: domain services still independently enforce Build Pack preparation and export, so manipulating widgets cannot authorize it.
 
 ## Update-error presentation
 

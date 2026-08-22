@@ -120,7 +120,7 @@ def test_06_focused_flow_replaces_three_tabs_and_keeps_evidence_collapsed(tmp_pa
     with patch("relic_auditor.dashboard.qt_app.claude_max_status", return_value=status):
         window = RelicWindow()
     assert not hasattr(window, "primary_tabs")
-    assert window.flow_stack.count() == 5
+    assert window.flow_stack.count() == 7
     assert window.flow_stack.currentWidget() is window.scan_page
     assert window.shell_stack.currentWidget() is window.product_shell
     assert not window.prepare_product_button.isVisible()

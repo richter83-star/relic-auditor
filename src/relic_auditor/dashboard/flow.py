@@ -15,7 +15,10 @@ class FlowState(str, Enum):
     TARGET_SELECTED = "target_selected"
     SCANNING = "scanning"
     ANSWER_READY = "answer_ready"
-    PREPARING_PRODUCT = "preparing_product"
+    OPPORTUNITY_CHOOSER = "opportunity_chooser"
+    OPPORTUNITY_SELECTED = "opportunity_selected"
+    PREPARE_PRODUCT = "prepare_product"
+    BUILD_PACK_GATE = "build_pack_gate"
     BUILD_PACK_READY = "build_pack_ready"
     BUILD_SESSION_ACTIVE = "build_session_active"
 
@@ -27,15 +30,30 @@ _ALLOWED_TRANSITIONS = {
     FlowState.ANSWER_READY: {
         FlowState.NO_TARGET,
         FlowState.TARGET_SELECTED,
-        FlowState.PREPARING_PRODUCT,
+        FlowState.OPPORTUNITY_CHOOSER,
+        FlowState.PREPARE_PRODUCT,
     },
-    FlowState.PREPARING_PRODUCT: {
+    FlowState.OPPORTUNITY_CHOOSER: {
         FlowState.ANSWER_READY,
+        FlowState.OPPORTUNITY_SELECTED,
+    },
+    FlowState.OPPORTUNITY_SELECTED: {
+        FlowState.ANSWER_READY,
+        FlowState.OPPORTUNITY_CHOOSER,
+        FlowState.PREPARE_PRODUCT,
+    },
+    FlowState.PREPARE_PRODUCT: {
+        FlowState.ANSWER_READY,
+        FlowState.OPPORTUNITY_SELECTED,
+        FlowState.OPPORTUNITY_CHOOSER,
+        FlowState.BUILD_PACK_GATE,
         FlowState.BUILD_PACK_READY,
     },
+    FlowState.BUILD_PACK_GATE: {FlowState.PREPARE_PRODUCT},
     FlowState.BUILD_PACK_READY: {
         FlowState.ANSWER_READY,
-        FlowState.PREPARING_PRODUCT,
+        FlowState.OPPORTUNITY_SELECTED,
+        FlowState.PREPARE_PRODUCT,
         FlowState.BUILD_SESSION_ACTIVE,
     },
     FlowState.BUILD_SESSION_ACTIVE: {FlowState.BUILD_PACK_READY},
@@ -65,12 +83,30 @@ class FlowController:
         self.state = destination
 
 
-def focused_answer(bundle: DashboardBundle) -> dict[str, Any]:
+def product_friendly_title(title: str) -> str:
+    """Present a bounded product concept without rewriting source evidence."""
+
+    if title.strip().casefold() == "traceable compliance gap assessment":
+        return "Compliance Gap Assessment Platform"
+    return title
+
+
+def focused_answer(
+    bundle: DashboardBundle, opportunity_id: str | None = None
+) -> dict[str, Any]:
     """Translate evidence into the decision-first Answer screen contract."""
 
     target = bundle.audit.target.name or "This project"
     opportunities = list(bundle.discovery.opportunities) if bundle.discovery else []
-    lead = opportunities[0] if opportunities else None
+    lead = next(
+        (
+            item
+            for item in opportunities
+            if opportunity_id
+            and str(item.get("opportunity_id") or "") == opportunity_id
+        ),
+        opportunities[0] if opportunities else None,
+    )
     lead_assets = list(lead.get("reusable_assets", [])) if lead else []
     acquisition_assets = (
         list(bundle.acquisition.best_candidates) if bundle.acquisition else []
@@ -95,14 +131,15 @@ def focused_answer(bundle: DashboardBundle) -> dict[str, Any]:
         adjective = "strong" if strength in {"strong", "high", "verified"} else "credible"
         conclusion = f"{target} has a {adjective} reusable foundation."
         detail = (
-            "Relic found enough working structure to support a practical product path "
-            "without treating unfinished or unverified code as complete."
+            "Relic found enough working structure to support a practical product path. "
+            "The product still needs assembly and validation."
         )
-        opportunity_title = str(lead.get("title") or "Focused product opportunity")
+        technical_title = str(lead.get("title") or "Focused product opportunity")
+        opportunity_title = product_friendly_title(technical_title)
         opportunity_summary = str(
             lead.get("summary") or "The strongest evidence-backed product path."
         )
-        recommendation = "Prepare the strongest opportunity for development."
+        recommendation = "Prepare this opportunity for development."
     else:
         conclusion = f"{target} contains reusable software, but no product path is ready yet."
         detail = (
@@ -145,6 +182,10 @@ def focused_answer(bundle: DashboardBundle) -> dict[str, Any]:
         "conclusion": conclusion,
         "detail": detail,
         "opportunity_title": opportunity_title,
+        "technical_opportunity_title": (
+            str(lead.get("title") or opportunity_title) if lead else opportunity_title
+        ),
+        "opportunity_id": str(lead.get("opportunity_id") or "") if lead else "",
         "opportunity_summary": opportunity_summary,
         "reusable": reusable,
         "reusable_count": reusable_count,

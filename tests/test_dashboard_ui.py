@@ -150,6 +150,9 @@ def test_claude_max_label_not_horizontally_clipped(window, app) -> None:
 
 
 def test_sidebar_scrolls_when_content_exceeds_viewport(window, app) -> None:
+    window.open_settings()
+    window.settings_tabs.setCurrentWidget(window.settings_reasoning_tab)
+    app.processEvents()
     _laid_out(window, app, 1280, 720)
     scroll = window.sidebar_scroll
     assert scroll.widgetResizable()
@@ -164,6 +167,9 @@ def test_sidebar_scrolls_when_content_exceeds_viewport(window, app) -> None:
 def test_no_horizontal_scrollbar_in_sidebar(window, app) -> None:
     """Unnecessary horizontal scrollbars were a listed v0.8 defect."""
 
+    window.open_settings()
+    window.settings_tabs.setCurrentWidget(window.settings_reasoning_tab)
+    app.processEvents()
     _laid_out(window, app, 1280, 720)
     assert (
         window.sidebar_scroll.horizontalScrollBarPolicy()
@@ -177,6 +183,9 @@ def test_no_horizontal_scrollbar_in_sidebar(window, app) -> None:
 def test_provider_panel_stays_reachable(window, app) -> None:
     """Provider status must never fall permanently below the window."""
 
+    window.open_settings()
+    window.settings_tabs.setCurrentWidget(window.settings_reasoning_tab)
+    app.processEvents()
     for width, height in ((1280, 720), (1366, 768)):
         _laid_out(window, app, width, height)
         card = window.provider_card
@@ -366,19 +375,14 @@ def test_metric_grid_reflows_to_what_actually_fits(window, app) -> None:
         previous = columns
 
 
-def test_panels_stack_vertically_at_minimum_width(window, app) -> None:
+def test_technical_evidence_remains_full_width_at_minimum_width(window, app) -> None:
     _laid_out(window, app, 1600, 900)
-    assert window.body_splitter.orientation() == Qt.Orientation.Horizontal
-    # Still horizontal just above the stack breakpoint...
+    assert not hasattr(window, "body_splitter")
+    assert window.tabs.isVisible()
     _laid_out(window, app, 1000, 700)
-    assert window.body_splitter.orientation() == Qt.Orientation.Horizontal
-    # ...and stacked below it, with both panes given real height.
+    assert window.tabs.isVisible()
     _laid_out(window, app, 960, 700)
-    assert window.body_splitter.orientation() == Qt.Orientation.Vertical
-    sizes = window.body_splitter.sizes()
-    assert all(size > 100 for size in sizes), (
-        f"stacked panes collapsed: {sizes}"
-    )
+    assert window.tabs.width() > 700
 
 
 # 5. Table resize behaviour -------------------------------------------------
@@ -453,6 +457,8 @@ def test_long_path_does_not_widen_window_beyond_minimum(window, app) -> None:
 
 
 def test_long_profile_name_does_not_clip_layout(window, app) -> None:
+    window.open_settings()
+    window.settings_tabs.setCurrentWidget(window.settings_reasoning_tab)
     window.use_llm.setChecked(True)
     window.llm_provider.setCurrentIndex(1)  # configured profile
     app.processEvents()
@@ -727,7 +733,7 @@ def test_default_product_shell_is_focused_scan_state(app) -> None:
     try:
         assert win.shell_stack.currentWidget() is win.product_shell
         assert not hasattr(win, "primary_tabs")
-        assert win.flow_stack.count() == 5
+        assert win.flow_stack.count() == 7
         assert win.flow_stack.currentWidget() is win.scan_page
         assert win.flow.state is FlowState.NO_TARGET
         assert not win.provider_card.isVisible()
@@ -770,7 +776,9 @@ def test_technical_details_is_progressive_disclosure(app) -> None:
         app.processEvents()
         assert win.shell_stack.currentWidget() is win.technical_shell
         assert win.tabs.isVisible()
-        assert win.provider_card.isVisible()
+        assert not win.provider_card.isVisible()
+        assert not win.technical_shell.isAncestorOf(win.mode)
+        assert not win.technical_shell.isAncestorOf(win.provider_card)
         win.close_technical_details()
         app.processEvents()
         assert win.shell_stack.currentWidget() is win.product_shell

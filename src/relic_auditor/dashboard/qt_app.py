@@ -46,7 +46,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QScrollArea,
     QSizePolicy,
-    QSplitter,
     QStackedWidget,
     QStatusBar,
     QTabWidget,
@@ -105,7 +104,7 @@ from .core import (
     list_report_history,
     run_dashboard_audit,
 )
-from .flow import FlowController, FlowState, focused_answer
+from .flow import FlowController, FlowState, focused_answer, product_friendly_title
 from .license_dialog import LicenseDialog
 from .supervisor_dialog import AssistedBuildDialog
 from .theme import BREAKPOINTS, SPACING, control_height, stylesheet
@@ -237,6 +236,9 @@ class RelicWindow(QMainWindow):
         self._provider_configured = False
         self.flow = FlowController()
         self._technical_origin: QWidget | None = None
+        self._technical_opportunity_id: str | None = None
+        self._selected_opportunity_id: str | None = None
+        self._opportunity_was_selected = False
         self._prepared_build_pack = None
         self._exported_build_pack = None
         self._build_pack_service: BuildPackService | None = None
@@ -483,13 +485,17 @@ class RelicWindow(QMainWindow):
         self.scan_page = self._build_scan_page()
         self.scanning_page = self._build_scanning_page()
         self.answer_page = self._build_results_page()
+        self.opportunity_page = self._build_opportunity_page()
         self.prepare_page = self._build_prepare_page()
+        self.build_pack_gate_page = self._build_build_pack_gate_page()
         self.build_pack_page = self._build_build_pack_page()
         for page in (
             self.scan_page,
             self.scanning_page,
             self.answer_page,
+            self.opportunity_page,
             self.prepare_page,
+            self.build_pack_gate_page,
             self.build_pack_page,
         ):
             self.flow_stack.addWidget(page)
@@ -520,7 +526,7 @@ class RelicWindow(QMainWindow):
         actions.addStretch(1)
         self.scan_technical_button = SecondaryButton("Options")
         self.scan_technical_button.setAccessibleName("Open advanced scan options")
-        self.scan_technical_button.clicked.connect(self.open_technical_details)
+        self.scan_technical_button.clicked.connect(self.open_scan_settings)
         actions.addWidget(self.scan_technical_button)
         intro.add_layout(actions)
         column.addWidget(intro)
@@ -582,17 +588,20 @@ class RelicWindow(QMainWindow):
         results_layout.addWidget(self.answer_detail)
 
         self.best_opportunity_card = EvidenceCard("BEST OPPORTUNITY")
-        self.found_card = EvidenceCard("WHAT ALREADY EXISTS")
-        self.valuable_card = self.found_card
-        self.risk_card = EvidenceCard("WHAT NEEDS ATTENTION")
-        self.next_card = EvidenceCard("RECOMMENDED NEXT MOVE")
-        for card in (
-            self.best_opportunity_card,
-            self.found_card,
-            self.risk_card,
-            self.next_card,
-        ):
-            results_layout.addWidget(card)
+        results_layout.addWidget(self.best_opportunity_card)
+        self.answer_supporting_summary = QLabel("")
+        self.answer_supporting_summary.setObjectName("dimLabel")
+        self.answer_supporting_summary.setWordWrap(True)
+        self.answer_supporting_summary.setAccessibleName(
+            "Supporting reusable asset and attention summary"
+        )
+        results_layout.addWidget(self.answer_supporting_summary)
+        self.answer_recommendation_heading = section_label("RECOMMENDED NEXT MOVE")
+        self.answer_recommendation_label = QLabel("")
+        self.answer_recommendation_label.setObjectName("mutedLabel")
+        self.answer_recommendation_label.setWordWrap(True)
+        results_layout.addWidget(self.answer_recommendation_heading)
+        results_layout.addWidget(self.answer_recommendation_label)
 
         actions = QHBoxLayout()
         self.prepare_product_button = PrimaryButton("PREPARE THIS PRODUCT")
@@ -614,22 +623,15 @@ class RelicWindow(QMainWindow):
         self.view_full_report_button.setEnabled(False)
         self.view_full_report_button.clicked.connect(self.export_reports)
         self.results_technical_button = SecondaryButton("View technical evidence")
-        self.results_technical_button.clicked.connect(self.open_technical_details)
+        self.results_technical_button.clicked.connect(
+            self.open_selected_opportunity_evidence
+        )
         secondary_actions.addWidget(self.other_opportunities_button)
         secondary_actions.addWidget(self.view_full_report_button)
         secondary_actions.addWidget(self.results_technical_button)
         secondary_actions.addStretch(1)
         results_layout.addLayout(secondary_actions)
 
-        self.other_opportunities_list = QListWidget()
-        self.other_opportunities_list.setAccessibleName("Other ranked opportunities")
-        self.other_opportunities_list.setVisible(False)
-        results_layout.addWidget(self.other_opportunities_list)
-        self.prepare_product_note = QLabel("")
-        self.prepare_product_note.setObjectName("dimLabel")
-        self.prepare_product_note.setWordWrap(True)
-        self.prepare_product_note.setVisible(False)
-        results_layout.addWidget(self.prepare_product_note)
         results_layout.addStretch(1)
 
         results_scroll = QScrollArea()
@@ -643,18 +645,51 @@ class RelicWindow(QMainWindow):
         self.results_content.setVisible(False)
         return page
 
+    def _build_opportunity_page(self) -> QWidget:
+        page = QWidget()
+        outer = QVBoxLayout(page)
+        outer.setContentsMargins(SPACING.xl, SPACING.xl, SPACING.xl, SPACING.xl)
+        outer.setSpacing(SPACING.lg)
+
+        self.opportunity_back_button = SecondaryButton("← Back to Answer")
+        self.opportunity_back_button.clicked.connect(self.return_to_answer)
+        outer.addWidget(self.opportunity_back_button, 0, Qt.AlignmentFlag.AlignLeft)
+        heading = QLabel("Other opportunities")
+        heading.setObjectName("emptyTitle")
+        heading.setWordWrap(True)
+        outer.addWidget(heading)
+        self.opportunity_count_label = QLabel("")
+        self.opportunity_count_label.setObjectName("mutedLabel")
+        self.opportunity_count_label.setWordWrap(True)
+        outer.addWidget(self.opportunity_count_label)
+
+        content = QWidget()
+        self.opportunity_cards_layout = QVBoxLayout(content)
+        self.opportunity_cards_layout.setContentsMargins(0, 0, 0, 0)
+        self.opportunity_cards_layout.setSpacing(SPACING.md)
+        self.opportunity_select_buttons: list[PrimaryButton] = []
+        self.opportunity_why_buttons: list[SecondaryButton] = []
+        self.opportunity_card_widgets: list[RelicPanel] = []
+        scroller = QScrollArea()
+        scroller.setWidget(content)
+        scroller.setWidgetResizable(True)
+        scroller.setFrameShape(QFrame.Shape.NoFrame)
+        scroller.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        outer.addWidget(scroller, 1)
+        return page
+
     def _build_prepare_page(self) -> QWidget:
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(SPACING.xl, SPACING.xl, SPACING.xl, SPACING.xl)
         layout.setSpacing(SPACING.lg)
 
-        heading = QLabel("Prepare this product")
-        heading.setObjectName("emptyTitle")
-        heading.setWordWrap(True)
+        self.prepare_heading = QLabel("Prepare this product")
+        self.prepare_heading.setObjectName("emptyTitle")
+        self.prepare_heading.setWordWrap(True)
         prompt = QLabel("What exactly are we about to build?")
         prompt.setObjectName("mutedLabel")
-        layout.addWidget(heading)
+        layout.addWidget(self.prepare_heading)
         layout.addWidget(prompt)
 
         self.prepare_product_card = EvidenceCard("PRODUCT")
@@ -683,16 +718,60 @@ class RelicWindow(QMainWindow):
 
         secondary = QHBoxLayout()
         self.change_opportunity_button = SecondaryButton("Change opportunity")
-        self.change_opportunity_button.clicked.connect(self.return_to_answer)
+        self.change_opportunity_button.clicked.connect(self.open_opportunity_chooser)
         self.review_assets_button = SecondaryButton("Review reusable assets")
         self.review_assets_button.clicked.connect(self.open_reusable_assets_evidence)
         self.prepare_technical_button = SecondaryButton("View technical evidence")
-        self.prepare_technical_button.clicked.connect(self.open_technical_details)
+        self.prepare_technical_button.clicked.connect(
+            self.open_selected_opportunity_evidence
+        )
+        self.prepare_back_button = SecondaryButton("Back to Answer")
+        self.prepare_back_button.clicked.connect(self.return_to_answer)
         secondary.addWidget(self.change_opportunity_button)
         secondary.addWidget(self.review_assets_button)
         secondary.addWidget(self.prepare_technical_button)
+        secondary.addWidget(self.prepare_back_button)
         secondary.addStretch(1)
         layout.addLayout(secondary)
+        layout.addStretch(1)
+        return page
+
+    def _build_build_pack_gate_page(self) -> QWidget:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(SPACING.xl, SPACING.xl, SPACING.xl, SPACING.xl)
+        layout.setSpacing(SPACING.xl)
+        heading = QLabel("Create your Build Pack")
+        heading.setObjectName("emptyTitle")
+        heading.setWordWrap(True)
+        explanation = QLabel(
+            "Relic can turn this product direction into an implementation-ready "
+            "package containing:"
+        )
+        explanation.setObjectName("mutedLabel")
+        explanation.setWordWrap(True)
+        contents = QLabel(
+            "• Product brief\n• MVP scope\n• Architecture\n• Implementation plan\n"
+            "• Reusable asset manifest\n• Acceptance criteria\n• Builder handoff"
+        )
+        contents.setObjectName("mutedLabel")
+        contents.setWordWrap(True)
+        self.build_pack_gate_message = QLabel("Build Pack creation requires Premium.")
+        self.build_pack_gate_message.setObjectName("panelTitle")
+        self.build_pack_gate_message.setWordWrap(True)
+        layout.addWidget(heading)
+        layout.addWidget(explanation)
+        layout.addWidget(contents)
+        layout.addWidget(self.build_pack_gate_message)
+        actions = QHBoxLayout()
+        self.view_premium_button = PrimaryButton("VIEW PREMIUM")
+        self.view_premium_button.clicked.connect(self.manage_plan)
+        self.build_pack_gate_back_button = SecondaryButton("Back")
+        self.build_pack_gate_back_button.clicked.connect(self.return_to_prepare)
+        actions.addWidget(self.view_premium_button)
+        actions.addWidget(self.build_pack_gate_back_button)
+        actions.addStretch(1)
+        layout.addLayout(actions)
         layout.addStretch(1)
         return page
 
@@ -807,13 +886,17 @@ class RelicWindow(QMainWindow):
         self.settings_tabs.setDocumentMode(True)
 
         scan = RelicPanel(
-            "Scan and reasoning",
-            "Advanced controls and provider status stay outside the normal product flow.",
+            "Scan",
+            "These controls change the depth of future audits. Completed evidence is not changed.",
         )
-        self.technical_options_button = SecondaryButton("Open advanced options")
-        self.technical_options_button.clicked.connect(self.open_technical_details)
-        scan.add_widget(self.technical_options_button)
+        scan.add_widget(section_label("Analysis mode"))
+        scan.add_widget(self.mode)
+        scan.add_widget(self.include_hidden)
+        self.settings_scan_tab = scan
         self.settings_tabs.addTab(scan, "Scan")
+
+        self.settings_reasoning_tab = self._build_sidebar()
+        self.settings_tabs.addTab(self.settings_reasoning_tab, "Reasoning")
 
         updates = RelicPanel(
             "Updates",
@@ -836,7 +919,7 @@ class RelicWindow(QMainWindow):
 
         plan = RelicPanel(
             "Your plan",
-            "Free scanning and evidence remain available. Pro and Premium product workflows are coming soon.",
+            "Scanning, answers, opportunity selection, and product preparation remain available on every plan. Premium gates Build Pack creation.",
         )
         plan.add_widget(self.plan_badge)
         plan.add_widget(self.plan_button)
@@ -881,27 +964,18 @@ class RelicWindow(QMainWindow):
         self.technical_title.setObjectName("panelTitle")
         self.technical_context = QLabel("Viewing evidence for: no completed scan")
         self.technical_context.setObjectName("dimLabel")
+        self.technical_context.setWordWrap(True)
         toolbar_layout.addWidget(self.back_to_product_button)
         title_column.addWidget(self.technical_title)
         title_column.addWidget(self.technical_context)
         toolbar_layout.addLayout(title_column)
         toolbar_layout.addStretch(1)
-        toolbar_layout.addWidget(self.provider_badge)
         layout.addWidget(toolbar)
-
-        self.body_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.body_splitter.setChildrenCollapsible(False)
-        self.body_splitter.setHandleWidth(1)
-        self.body_splitter.addWidget(self._build_sidebar())
-        self.body_splitter.addWidget(self._build_workspace())
-        self.body_splitter.setStretchFactor(0, 0)
-        self.body_splitter.setStretchFactor(1, 1)
-        self.body_splitter.setSizes(self._horizontal_split(1380))
-        layout.addWidget(self.body_splitter, 1)
+        layout.addWidget(self._build_workspace(), 1)
         return shell
 
     def _build_sidebar(self) -> QWidget:
-        """Advanced scan configuration and provider diagnostics.
+        """Reasoning configuration and provider diagnostics for Settings.
 
         The whole column scrolls, which is what keeps the provider panel
         reachable at 150%-200% scaling on a 768px-tall display.
@@ -913,18 +987,10 @@ class RelicWindow(QMainWindow):
         column.setSpacing(SPACING.lg)
 
         config = RelicPanel(
-            "Advanced scan settings",
-            "These controls change the depth of the next audit.",
+            "Reasoning",
+            "Advisory reasoning settings apply only to future audits.",
             emphasis=True,
         )
-
-        mode_row = QVBoxLayout()
-        mode_row.setSpacing(SPACING.xs)
-        mode_row.addWidget(section_label("Analysis mode"))
-        mode_row.addWidget(self.mode)
-        config.add_layout(mode_row)
-        config.add_widget(self.include_hidden)
-        config.add_widget(hairline())
         config.add_widget(self.use_llm)
 
         self.provider_row = QVBoxLayout()
@@ -1122,19 +1188,6 @@ class RelicWindow(QMainWindow):
         self._layout_metrics(columns=5)
         return wrapper
 
-    def _horizontal_split(self, width: int) -> list[int]:
-        """Sidebar / workspace widths for the side-by-side layout.
-
-        The sidebar gets its preferred width whenever the workspace can still
-        keep a usable share; otherwise it falls back to its minimum.
-        """
-
-        workspace_floor = 600
-        sidebar = self._sidebar_preferred
-        if width - sidebar < workspace_floor:
-            sidebar = self._sidebar_minimum
-        return [sidebar, max(workspace_floor, width - sidebar)]
-
     def _fitting_metric_columns(self) -> int:
         """Widest metric row that actually fits the strip.
 
@@ -1210,52 +1263,51 @@ class RelicWindow(QMainWindow):
 
     # -- responsive -------------------------------------------------------
 
-    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt naming
+    def resizeEvent(self, event) -> None:
         super().resizeEvent(event)
         if not hasattr(self, "technical_shell"):
             return
-        width = self.width()
         if self.shell_stack.currentWidget() is self.technical_shell:
             columns = self._fitting_metric_columns()
             if getattr(self, "_metric_columns", None) != columns:
                 self._layout_metrics(columns)
-        # Below the stack breakpoint the sidebar would squeeze the workspace,
-        # so the splitter switches to a vertical stack instead.
-        orientation = (
-            Qt.Orientation.Horizontal
-            if width >= BREAKPOINTS.stack
-            else Qt.Orientation.Vertical
-        )
-        if self.body_splitter.orientation() != orientation:
-            self.body_splitter.setOrientation(orientation)
-            # Sizes from the other orientation are meaningless here. Without
-            # this the stacked sidebar collapses to its title bar and the Run
-            # button ends up below the fold.
-            if orientation == Qt.Orientation.Horizontal:
-                self.sidebar_scroll.setMinimumHeight(0)
-                self.body_splitter.setSizes(self._horizontal_split(width))
-            else:
-                usable = max(self.height() - 120, 400)
-                # Without a floor the splitter honours the scroll area's tiny
-                # minimum and the stacked sidebar collapses to its title bar.
-                self.sidebar_scroll.setMinimumHeight(min(280, int(usable * 0.4)))
-                self.body_splitter.setSizes([int(usable * 0.45), int(usable * 0.55)])
 
     # -- provider ---------------------------------------------------------
 
     @Slot()
-    def open_technical_details(self) -> None:
+    def open_technical_details(
+        self, opportunity_id: str | None = None
+    ) -> None:
         """Reveal expert evidence and remember the exact originating surface."""
 
         origin = self.shell_stack.currentWidget()
         if origin is not self.technical_shell:
             self._technical_origin = origin
-        target = self.bundle.audit.target.name if self.bundle is not None else "no completed scan"
-        self.technical_context.setText(f"Viewing evidence for: {target}")
-        if origin is self.product_shell and self.flow.state in {
+        if opportunity_id is not None:
+            self._technical_opportunity_id = opportunity_id
+        elif origin is not self.technical_shell:
+            self._technical_opportunity_id = self._selected_opportunity_id
+        target = (
+            self.bundle.audit.target.name
+            if self.bundle is not None
+            else "no completed scan"
+        )
+        context = f"Viewing evidence for: {target}"
+        opportunity = self._opportunity_by_id(self._technical_opportunity_id)
+        if opportunity is not None:
+            context += "\nOpportunity: " + product_friendly_title(
+                str(opportunity.get("title") or "Focused product opportunity")
+            )
+        self.technical_context.setText(context)
+        if origin is self.product_shell and self.flow.state is FlowState.OPPORTUNITY_CHOOSER:
+            self.back_to_product_button.setText("Back to Opportunity")
+        elif origin is self.product_shell and self.flow.state is FlowState.PREPARE_PRODUCT:
+            self.back_to_product_button.setText("Back to Product Plan")
+        elif origin is self.product_shell and self.flow.state is FlowState.BUILD_PACK_READY:
+            self.back_to_product_button.setText("Back to Build Pack")
+        elif origin is self.product_shell and self.flow.state in {
             FlowState.ANSWER_READY,
-            FlowState.PREPARING_PRODUCT,
-            FlowState.BUILD_PACK_READY,
+            FlowState.OPPORTUNITY_SELECTED,
         }:
             self.back_to_product_button.setText("Back to Answer")
         elif origin is self.settings_shell:
@@ -1263,7 +1315,6 @@ class RelicWindow(QMainWindow):
         else:
             self.back_to_product_button.setText("Back")
         self.shell_stack.setCurrentWidget(self.technical_shell)
-        self.body_splitter.setSizes(self._horizontal_split(self.width()))
         self.status_message.setText("Technical Evidence · expert view")
 
     @Slot()
@@ -1281,7 +1332,10 @@ class RelicWindow(QMainWindow):
             FlowState.TARGET_SELECTED: self.scan_page,
             FlowState.SCANNING: self.scanning_page,
             FlowState.ANSWER_READY: self.answer_page,
-            FlowState.PREPARING_PRODUCT: self.prepare_page,
+            FlowState.OPPORTUNITY_CHOOSER: self.opportunity_page,
+            FlowState.OPPORTUNITY_SELECTED: self.answer_page,
+            FlowState.PREPARE_PRODUCT: self.prepare_page,
+            FlowState.BUILD_PACK_GATE: self.build_pack_gate_page,
             FlowState.BUILD_PACK_READY: self.build_pack_page,
             FlowState.BUILD_SESSION_ACTIVE: self.build_pack_page,
         }[state]
@@ -1303,9 +1357,131 @@ class RelicWindow(QMainWindow):
         self.status_message.setText("Settings")
 
     @Slot()
+    def open_scan_settings(self) -> None:
+        self.open_settings()
+        self.settings_tabs.setCurrentWidget(self.settings_scan_tab)
+
+    @Slot()
     def close_secondary_surface(self) -> None:
         self.shell_stack.setCurrentWidget(self.product_shell)
         self.status_message.setText("Ready")
+
+    def _opportunity_by_id(self, opportunity_id: str | None):
+        if (
+            not opportunity_id
+            or self.bundle is None
+            or self.bundle.discovery is None
+        ):
+            return None
+        return next(
+            (
+                item
+                for item in self.bundle.discovery.opportunities
+                if str(item.get("opportunity_id") or "") == opportunity_id
+            ),
+            None,
+        )
+
+    def _load_opportunity_cards(self) -> None:
+        while self.opportunity_cards_layout.count():
+            item = self.opportunity_cards_layout.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.setParent(None)
+                widget.deleteLater()
+        self.opportunity_select_buttons.clear()
+        self.opportunity_why_buttons.clear()
+        self.opportunity_card_widgets.clear()
+        if self.bundle is None or self.bundle.discovery is None:
+            self.opportunity_count_label.setText("No completed opportunity analysis.")
+            return
+
+        opportunities = list(self.bundle.discovery.opportunities)
+        count = len(opportunities)
+        noun = "direction" if count == 1 else "directions"
+        self.opportunity_count_label.setText(
+            f"Relic found {count:,} product {noun} for {self.bundle.audit.target.name}."
+        )
+        for index, opportunity in enumerate(opportunities):
+            opportunity_id = str(opportunity.get("opportunity_id") or "")
+            title = product_friendly_title(
+                str(opportunity.get("title") or "Focused product opportunity")
+            )
+            rank = "Best fit" if index == 0 else (
+                "Strong alternative" if index == 1 else "Alternative"
+            )
+            if opportunity_id == self._selected_opportunity_id:
+                rank = f"Selected · {rank}"
+            panel = RelicPanel(f"{index + 1}. {title}", rank)
+            summary = QLabel(
+                str(
+                    opportunity.get("summary")
+                    or "Review the available evidence for this product direction."
+                )
+            )
+            summary.setObjectName("mutedLabel")
+            summary.setWordWrap(True)
+            panel.add_widget(summary)
+            reusable_count = len(opportunity.get("reusable_assets") or [])
+            if reusable_count:
+                asset_word = "asset" if reusable_count == 1 else "assets"
+                assets = QLabel(
+                    f"{reusable_count:,} reusable {asset_word} may support this direction."
+                )
+                assets.setObjectName("dimLabel")
+                assets.setWordWrap(True)
+                panel.add_widget(assets)
+            actions = QHBoxLayout()
+            select = PrimaryButton("SELECT THIS OPPORTUNITY")
+            select.setAccessibleName(f"Select {title}")
+            select.clicked.connect(
+                lambda _checked=False, value=opportunity_id: self.select_opportunity(
+                    value
+                )
+            )
+            why = SecondaryButton("Why this?")
+            why.setAccessibleName(f"View technical evidence for {title}")
+            why.clicked.connect(
+                lambda _checked=False, value=opportunity_id: self.open_opportunity_evidence(
+                    value
+                )
+            )
+            actions.addWidget(select)
+            actions.addWidget(why)
+            actions.addStretch(1)
+            panel.add_layout(actions)
+            self.opportunity_cards_layout.addWidget(panel)
+            self.opportunity_card_widgets.append(panel)
+            self.opportunity_select_buttons.append(select)
+            self.opportunity_why_buttons.append(why)
+        self.opportunity_cards_layout.addStretch(1)
+
+    @Slot()
+    def open_opportunity_chooser(self) -> None:
+        if (
+            self.bundle is None
+            or self.bundle.discovery is None
+            or not self.bundle.discovery.opportunities
+        ):
+            return
+        self._load_opportunity_cards()
+        self._set_flow_state(FlowState.OPPORTUNITY_CHOOSER)
+        self.status_message.setText("Choose a product opportunity")
+
+    def select_opportunity(self, opportunity_id: str) -> None:
+        if self._opportunity_by_id(opportunity_id) is None or self.bundle is None:
+            return
+        self._selected_opportunity_id = opportunity_id
+        self._opportunity_was_selected = True
+        self._load_plain_english_results(self.bundle)
+        self._set_flow_state(FlowState.OPPORTUNITY_SELECTED)
+        self.status_message.setText("Answer updated for the selected opportunity")
+
+    def open_opportunity_evidence(self, opportunity_id: str) -> None:
+        if self._opportunity_by_id(opportunity_id) is None:
+            return
+        self.open_technical_details(opportunity_id)
+        self.tabs.setCurrentWidget(self.opportunities)
 
     @Slot()
     def toggle_update_diagnostics(self) -> None:
@@ -1317,16 +1493,28 @@ class RelicWindow(QMainWindow):
 
     @Slot()
     def toggle_other_opportunities(self) -> None:
-        visible = not self.other_opportunities_list.isVisible()
-        self.other_opportunities_list.setVisible(visible)
-        self.other_opportunities_button.setText(
-            "Hide other opportunities" if visible else "Other opportunities"
-        )
+        """Compatibility slot retained for the original focused-flow button."""
+
+        self.open_opportunity_chooser()
 
     @Slot()
     def return_to_answer(self) -> None:
         if self.bundle is not None:
-            self._set_flow_state(FlowState.ANSWER_READY)
+            state = (
+                FlowState.OPPORTUNITY_SELECTED
+                if self._opportunity_was_selected
+                else FlowState.ANSWER_READY
+            )
+            self._set_flow_state(state)
+
+    @Slot()
+    def return_to_prepare(self) -> None:
+        if self.bundle is not None:
+            self._set_flow_state(FlowState.PREPARE_PRODUCT)
+
+    @Slot()
+    def open_selected_opportunity_evidence(self) -> None:
+        self.open_technical_details(self._selected_opportunity_id)
 
     @Slot()
     def open_reusable_assets_evidence(self) -> None:
@@ -1476,6 +1664,8 @@ class RelicWindow(QMainWindow):
             chosen = Path(selected).expanduser().resolve()
             if self.bundle is not None and chosen != self.bundle.audit.target.resolve():
                 self.bundle = None
+                self._selected_opportunity_id = None
+                self._opportunity_was_selected = False
                 self.report_directory = None
                 self._prepared_build_pack = None
                 self._exported_build_pack = None
@@ -1485,6 +1675,8 @@ class RelicWindow(QMainWindow):
             self._set_flow_state(FlowState.TARGET_SELECTED, new_workflow=True)
         else:
             self.bundle = None
+            self._selected_opportunity_id = None
+            self._opportunity_was_selected = False
             self._prepared_build_pack = None
             self._exported_build_pack = None
             self.status_message.setText("Choose a folder to begin")
@@ -1627,6 +1819,8 @@ class RelicWindow(QMainWindow):
     @Slot(object)
     def _scan_complete(self, bundle: DashboardBundle) -> None:
         self.bundle = bundle
+        self._selected_opportunity_id = None
+        self._opportunity_was_selected = False
         self._elapsed_timer.stop()
         self._load_bundle(bundle)
         files = len(bundle.audit.files)
@@ -1785,54 +1979,32 @@ class RelicWindow(QMainWindow):
         )
 
     def _load_plain_english_results(self, bundle: DashboardBundle) -> None:
-        answer = focused_answer(bundle)
+        answer = focused_answer(bundle, self._selected_opportunity_id)
+        self._selected_opportunity_id = str(answer["opportunity_id"] or "") or None
         self.answer_conclusion.setText(str(answer["conclusion"]))
         self.answer_detail.setText(str(answer["detail"]))
         self.best_opportunity_card.title_label.setText("BEST OPPORTUNITY")
         self.best_opportunity_card.set_body(
             f"{answer['opportunity_title']}\n\n{answer['opportunity_summary']}"
         )
-        self.found_card.set_body(str(answer["reusable"]))
-        self.risk_card.set_body(str(answer["concerns"]))
-        self.next_card.set_body(str(answer["recommendation"]))
+        reusable_count = int(answer["reusable_count"])
+        concern_count = int(answer["concern_count"])
+        asset_word = "asset" if reusable_count == 1 else "assets"
+        item_word = "item" if concern_count == 1 else "items"
+        attention = "needs" if concern_count == 1 else "need"
+        self.answer_supporting_summary.setText(
+            f"{reusable_count:,} reusable {asset_word} · {concern_count:,} "
+            f"{item_word} {attention} attention"
+        )
+        self.answer_recommendation_label.setText(str(answer["recommendation"]))
         self.results_empty.setVisible(False)
         self.results_content.setVisible(True)
         opportunities = list(answer["opportunities"])
-        self.other_opportunities_list.clear()
-        for index, opportunity in enumerate(opportunities[1:], start=2):
-            confidence = opportunity.get("evidence_strength") or "exploratory"
-            item = QListWidgetItem(
-                f"{index}. {opportunity.get('title') or 'Untitled opportunity'}\n"
-                f"   {str(confidence).title()} confidence"
-            )
-            item.setData(Qt.ItemDataRole.UserRole, opportunity.get("opportunity_id"))
-            self.other_opportunities_list.addItem(item)
         self.other_opportunities_button.setVisible(len(opportunities) > 1)
-        self.other_opportunities_list.setVisible(False)
         has_opportunity = bool(opportunities)
-        evidence_ready = bool(
-            has_opportunity
-            and opportunities[0].get("build_pack_readiness") == "eligible"
-        )
-        entitled = bundle.entitlement.allows(ProductCapability.BUILD_PACK_PREVIEW)
-        eligible = evidence_ready and entitled
         self.prepare_product_button.setVisible(has_opportunity)
-        self.prepare_product_button.setEnabled(eligible)
-        self.prepare_product_note.setVisible(has_opportunity and not eligible)
-        if has_opportunity and not evidence_ready:
-            note = (
-                "Build Pack unavailable: the leading opportunity needs stronger "
-                "evidence before Relic can prepare it safely."
-            )
-        elif has_opportunity and not entitled:
-            note = (
-                f"Build Pack requires Premium; this installation is using the "
-                f"{bundle.entitlement.tier.value.title()} entitlement. Reports remain available."
-            )
-        else:
-            note = ""
-        self.prepare_product_note.setText(note)
-        self.prepare_product_button.setToolTip(note)
+        self.prepare_product_button.setEnabled(has_opportunity)
+        self.prepare_product_button.setToolTip("")
 
     @Slot()
     def manage_plan(self) -> None:
@@ -1859,9 +2031,10 @@ class RelicWindow(QMainWindow):
             or not self.bundle.discovery.opportunities
         ):
             return
-        answer = focused_answer(self.bundle)
+        answer = focused_answer(self.bundle, self._selected_opportunity_id)
+        self.prepare_heading.setText(f"Prepare {answer['opportunity_title']}")
         self.prepare_product_card.set_body(
-            f"{answer['opportunity_title']}\n\n{answer['opportunity_summary']}"
+            str(answer["opportunity_summary"])
         )
         self.prepare_reuse_card.set_body(str(answer["reusable"]))
         missing = answer["missing"]
@@ -1877,7 +2050,7 @@ class RelicWindow(QMainWindow):
             if risks
             else "Exact asset provenance and approvals remain required."
         )
-        self._set_flow_state(FlowState.PREPARING_PRODUCT)
+        self._set_flow_state(FlowState.PREPARE_PRODUCT)
         self.status_message.setText("Review the product definition before creating a Build Pack")
 
     @Slot()
@@ -1888,8 +2061,17 @@ class RelicWindow(QMainWindow):
             or not self.bundle.discovery.opportunities
         ):
             return
-        service = BuildPackService(self.bundle.entitlement)
-        opportunity = self.bundle.discovery.opportunities[0]
+        if not self.entitlement.allows(ProductCapability.BUILD_PACK_PREVIEW):
+            self.build_pack_gate_message.setText(
+                "Build Pack creation requires Premium. Your product plan remains available."
+            )
+            self._set_flow_state(FlowState.BUILD_PACK_GATE)
+            self.status_message.setText("Premium is required to create a Build Pack")
+            return
+        service = BuildPackService(self.entitlement)
+        opportunity = self._opportunity_by_id(self._selected_opportunity_id)
+        if opportunity is None:
+            return
         try:
             pack = service.prepare(
                 self.bundle.discovery,
@@ -1913,8 +2095,23 @@ class RelicWindow(QMainWindow):
                 )
                 self._set_flow_state(FlowState.BUILD_PACK_READY)
                 self.status_message.setText(f"Build Pack ready · {exported.directory}")
-        except (PermissionError, ValueError, OSError) as exc:
-            QMessageBox.warning(self, "Create Build Pack", str(exc))
+        except PermissionError:
+            self._set_flow_state(FlowState.BUILD_PACK_GATE)
+            self.status_message.setText("Premium is required to create a Build Pack")
+        except ValueError:
+            QMessageBox.warning(
+                self,
+                "Build Pack not ready",
+                "This product direction needs stronger evidence before Relic can "
+                "prepare its Build Pack safely.",
+            )
+        except OSError:
+            QMessageBox.warning(
+                self,
+                "Build Pack unavailable",
+                "Relic could not prepare the Build Pack workspace. No source files "
+                "were changed.",
+            )
 
     @Slot()
     def open_exported_build_pack(self) -> None:
