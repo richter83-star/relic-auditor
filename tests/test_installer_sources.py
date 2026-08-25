@@ -23,7 +23,7 @@ def test_installer_is_per_user_and_preserves_configuration() -> None:
 
 def test_application_manifest_is_non_elevated_and_dpi_aware() -> None:
     manifest = (WINDOWS / "assets" / "app.manifest").read_text(encoding="utf-8")
-    assert 'assemblyIdentity version="1.0.2.0"' in manifest
+    assert 'assemblyIdentity version="1.0.3.0"' in manifest
     assert 'requestedExecutionLevel level="asInvoker"' in manifest
     assert "PerMonitorV2" in manifest
     assert "longPathAware" in manifest
@@ -39,9 +39,9 @@ def test_build_is_pinned_and_outputs_both_frontends() -> None:
     assert 'collect_submodules("keyring.backends")' in spec
     assert "console=False" in spec
     assert "console=True" in spec
-    assert "filevers=(1, 0, 2, 0)" in version_info
-    assert "prodvers=(1, 0, 2, 0)" in version_info
-    assert "FileVersion', '1.0.2.0'" in version_info
+    assert "filevers=(1, 0, 3, 0)" in version_info
+    assert "prodvers=(1, 0, 3, 0)" in version_info
+    assert "FileVersion', '1.0.3.0'" in version_info
 
 
 def test_clean_install_and_uninstall_are_release_gates() -> None:
@@ -58,11 +58,11 @@ def test_clean_install_and_uninstall_are_release_gates() -> None:
     assert "ExpectedSourceSha256 is required" in build
     assert "ProjectVersionLines" in build
     assert "-split '\\r?\\n'" in build
-    assert 'version = "1.0.2"' in build
-    assert "relic-auditor-1.0.2.zip" in build
-    assert "Relic Auditor 1.0.2" in dashboard
+    assert 'version = "1.0.3"' in build
+    assert "relic-auditor-1.0.3.zip" in build
+    assert "Relic Auditor 1.0.3" in dashboard
     assert "relic_auditor.entrypoint" in cli_entrypoint
-    assert "Relic-Auditor-Setup-1.0.2-x64.exe" in installer_readme
+    assert "Relic-Auditor-Setup-1.0.3-x64.exe" in installer_readme
     assert "0.12.0" not in installer_readme.splitlines()[0]
     assert '"resurrect", $Fixture' in build
     for required in (
@@ -93,11 +93,12 @@ def test_workflow_freezes_exact_commit_and_uploads_verified_artifacts() -> None:
         encoding="utf-8"
     )
     assert "runs-on: windows-latest" in workflow
-    assert "git archive --format=zip --prefix=relic-auditor-1.0.2/" in workflow
+    assert "build/v1.0.3-flow-corrections" in workflow
+    assert "git archive --format=zip --prefix=relic-auditor-1.0.3/" in workflow
     assert "Get-FileHash -LiteralPath $archive -Algorithm SHA256" in workflow
     assert "-ExpectedSourceSha256" in workflow
-    assert "releases/relic-auditor-1.0.2.zip" in workflow
+    assert "releases/relic-auditor-1.0.3.zip" in workflow
     assert "SkipSourceTests" not in workflow
     assert "actions/upload-artifact@v4" in workflow
-    assert "Relic-Auditor-1.0.2-RC-Windows-x64" in workflow
+    assert "Relic-Auditor-1.0.3-RC-Windows-x64" in workflow
     assert re.search(r"WINDOWS_SIGNING_PFX_BASE64.*secrets", workflow)

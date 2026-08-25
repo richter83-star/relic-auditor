@@ -29,13 +29,13 @@ Resurrection evaluates whether a partially built codebase contains a substantive
 
 The reconciliation history and validation rules are documented in [docs/v1.0.1-reconciliation.md](docs/v1.0.1-reconciliation.md). Release changes are summarized in [docs/v1.0.1-release-notes.md](docs/v1.0.1-release-notes.md), with upgrade guidance in [docs/v1.0.1-upgrade.md](docs/v1.0.1-upgrade.md). The public release is available at [GitHub Release v1.0.1](https://github.com/richter83-star/relic-auditor/releases/tag/v1.0.1).
 
-## Development candidate: v1.0.2 Focused Flow
+## Development candidate: v1.0.3 Focused Flow
 
-v1.0.2 preserves the v1.0.1 engines and security boundaries while replacing the desktop's permanent Scan / Results / Reports tabs with one state-driven journey:
+v1.0.3 preserves the v1.0.1 engines and security boundaries while replacing the desktop's permanent Scan / Results / Reports tabs with one state-driven journey:
 
 **Scan → Answer → Prepare → Build**
 
-History and Settings are quiet header utilities. Technical Evidence remains a complete expert console, but appears only when the user deliberately asks for proof or advanced controls. See [docs/focused-flow.md](docs/focused-flow.md) and [docs/v1.0.2-release-notes.md](docs/v1.0.2-release-notes.md).
+History and Settings are quiet header utilities. Technical Evidence remains a complete expert console, but appears only when the user deliberately asks for proof. v1.0.3 compresses opportunity comparison and keeps contextual evidence scoped to the opportunity being inspected. See [docs/focused-flow.md](docs/focused-flow.md) and [docs/v1.0.3-release-notes.md](docs/v1.0.3-release-notes.md).
 
 ## Code signing policy
 
@@ -197,7 +197,7 @@ Production defaults to Free and there is no CLI flag that promotes an entitlemen
 
 Signed entitlements and OS credential storage are documented in [docs/licensing.md](docs/licensing.md) and [docs/entitlements-and-privacy.md](docs/entitlements-and-privacy.md).
 
-Production paid activation is not provisioned in v1.0.2. The desktop therefore presents Free, Pro coming soon, and Premium coming soon without exposing inactive license-key controls; the underlying entitlement boundary continues to fail closed.
+Production paid activation is not provisioned in v1.0.3. The desktop therefore presents Free, Pro coming soon, and Premium coming soon without exposing inactive license-key controls; the underlying entitlement boundary continues to fail closed.
 
 ## Optional LLM reasoning
 

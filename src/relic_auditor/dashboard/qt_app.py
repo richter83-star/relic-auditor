@@ -239,6 +239,7 @@ class RelicWindow(QMainWindow):
         self._technical_opportunity_id: str | None = None
         self._selected_opportunity_id: str | None = None
         self._opportunity_was_selected = False
+        self._all_opportunity_rows: list[dict[str, object]] = []
         self._prepared_build_pack = None
         self._exported_build_pack = None
         self._build_pack_service: BuildPackService | None = None
@@ -654,7 +655,7 @@ class RelicWindow(QMainWindow):
         self.opportunity_back_button = SecondaryButton("← Back to Answer")
         self.opportunity_back_button.clicked.connect(self.return_to_answer)
         outer.addWidget(self.opportunity_back_button, 0, Qt.AlignmentFlag.AlignLeft)
-        heading = QLabel("Other opportunities")
+        heading = QLabel("Choose an opportunity")
         heading.setObjectName("emptyTitle")
         heading.setWordWrap(True)
         outer.addWidget(heading)
@@ -663,19 +664,47 @@ class RelicWindow(QMainWindow):
         self.opportunity_count_label.setWordWrap(True)
         outer.addWidget(self.opportunity_count_label)
 
-        content = QWidget()
-        self.opportunity_cards_layout = QVBoxLayout(content)
-        self.opportunity_cards_layout.setContentsMargins(0, 0, 0, 0)
-        self.opportunity_cards_layout.setSpacing(SPACING.md)
-        self.opportunity_select_buttons: list[PrimaryButton] = []
-        self.opportunity_why_buttons: list[SecondaryButton] = []
-        self.opportunity_card_widgets: list[RelicPanel] = []
-        scroller = QScrollArea()
-        scroller.setWidget(content)
-        scroller.setWidgetResizable(True)
-        scroller.setFrameShape(QFrame.Shape.NoFrame)
-        scroller.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        outer.addWidget(scroller, 1)
+        self.opportunity_list = QListWidget()
+        self.opportunity_list.setAccessibleName("Ranked product opportunities")
+        self.opportunity_list.setAccessibleDescription(
+            "Choose one product direction. Each row includes rank, evidence, effort, "
+            "and reusable-asset count."
+        )
+        self.opportunity_list.setWordWrap(True)
+        self.opportunity_list.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+        self.opportunity_list.currentItemChanged.connect(
+            lambda _current, _previous: self._preview_opportunity_choice()
+        )
+        self.opportunity_list.itemDoubleClicked.connect(
+            lambda _item: self.select_chooser_opportunity()
+        )
+        outer.addWidget(self.opportunity_list, 1)
+
+        self.opportunity_preview = EvidenceCard("SELECTED OPPORTUNITY")
+        self.opportunity_preview.setAccessibleName("Selected opportunity summary")
+        outer.addWidget(self.opportunity_preview)
+
+        actions = QHBoxLayout()
+        self.choose_opportunity_button = PrimaryButton("SELECT OPPORTUNITY")
+        self.choose_opportunity_button.setAccessibleName(
+            "Use the highlighted opportunity"
+        )
+        self.choose_opportunity_button.clicked.connect(
+            self.select_chooser_opportunity
+        )
+        self.chooser_evidence_button = SecondaryButton("View evidence")
+        self.chooser_evidence_button.setAccessibleName(
+            "View technical evidence for the highlighted opportunity"
+        )
+        self.chooser_evidence_button.clicked.connect(
+            self.open_chooser_opportunity_evidence
+        )
+        actions.addWidget(self.choose_opportunity_button)
+        actions.addWidget(self.chooser_evidence_button)
+        actions.addStretch(1)
+        outer.addLayout(actions)
         return page
 
     def _build_prepare_page(self) -> QWidget:
@@ -1283,10 +1312,8 @@ class RelicWindow(QMainWindow):
         origin = self.shell_stack.currentWidget()
         if origin is not self.technical_shell:
             self._technical_origin = origin
-        if opportunity_id is not None:
+        if origin is not self.technical_shell:
             self._technical_opportunity_id = opportunity_id
-        elif origin is not self.technical_shell:
-            self._technical_opportunity_id = self._selected_opportunity_id
         target = (
             self.bundle.audit.target.name
             if self.bundle is not None
@@ -1295,10 +1322,11 @@ class RelicWindow(QMainWindow):
         context = f"Viewing evidence for: {target}"
         opportunity = self._opportunity_by_id(self._technical_opportunity_id)
         if opportunity is not None:
-            context += "\nOpportunity: " + product_friendly_title(
+            context += "\nScoped to opportunity: " + product_friendly_title(
                 str(opportunity.get("title") or "Focused product opportunity")
             )
         self.technical_context.setText(context)
+        self._scope_technical_opportunities(self._technical_opportunity_id)
         if origin is self.product_shell and self.flow.state is FlowState.OPPORTUNITY_CHOOSER:
             self.back_to_product_button.setText("Back to Opportunity")
         elif origin is self.product_shell and self.flow.state is FlowState.PREPARE_PRODUCT:
@@ -1321,6 +1349,7 @@ class RelicWindow(QMainWindow):
     def close_technical_details(self) -> None:
         destination = self._technical_origin or self.product_shell
         self.shell_stack.setCurrentWidget(destination)
+        self._scope_technical_opportunities(None)
         self.status_message.setText("Ready")
 
     def _set_flow_state(
@@ -1383,25 +1412,24 @@ class RelicWindow(QMainWindow):
         )
 
     def _load_opportunity_cards(self) -> None:
-        while self.opportunity_cards_layout.count():
-            item = self.opportunity_cards_layout.takeAt(0)
-            widget = item.widget()
-            if widget is not None:
-                widget.setParent(None)
-                widget.deleteLater()
-        self.opportunity_select_buttons.clear()
-        self.opportunity_why_buttons.clear()
-        self.opportunity_card_widgets.clear()
+        """Populate the compact, single-action opportunity chooser."""
+
+        self.opportunity_list.clear()
         if self.bundle is None or self.bundle.discovery is None:
             self.opportunity_count_label.setText("No completed opportunity analysis.")
+            self.choose_opportunity_button.setEnabled(False)
+            self.chooser_evidence_button.setEnabled(False)
+            self.opportunity_preview.set_body("No opportunity is available to compare.")
             return
 
         opportunities = list(self.bundle.discovery.opportunities)
         count = len(opportunities)
         noun = "direction" if count == 1 else "directions"
         self.opportunity_count_label.setText(
-            f"Relic found {count:,} product {noun} for {self.bundle.audit.target.name}."
+            f"Compare {count:,} product {noun} for {self.bundle.audit.target.name}. "
+            "Choose a row, then use the single primary action below."
         )
+        selected_row = 0
         for index, opportunity in enumerate(opportunities):
             opportunity_id = str(opportunity.get("opportunity_id") or "")
             title = product_friendly_title(
@@ -1412,49 +1440,77 @@ class RelicWindow(QMainWindow):
             )
             if opportunity_id == self._selected_opportunity_id:
                 rank = f"Selected · {rank}"
-            panel = RelicPanel(f"{index + 1}. {title}", rank)
-            summary = QLabel(
+            reusable_count = len(opportunity.get("reusable_assets") or [])
+            asset_word = "asset" if reusable_count == 1 else "assets"
+            confidence = str(
+                opportunity.get("evidence_strength") or "exploratory"
+            ).replace("_", " ").title()
+            effort = str(opportunity.get("extraction_effort") or "not estimated")
+            item = QListWidgetItem(
+                f"{index + 1}. {title}\n"
+                f"{rank} · {confidence} evidence · {effort} effort · "
+                f"{reusable_count:,} reusable {asset_word}"
+            )
+            item.setData(Qt.ItemDataRole.UserRole, opportunity_id)
+            item.setToolTip(
                 str(
                     opportunity.get("summary")
                     or "Review the available evidence for this product direction."
                 )
             )
-            summary.setObjectName("mutedLabel")
-            summary.setWordWrap(True)
-            panel.add_widget(summary)
-            reusable_count = len(opportunity.get("reusable_assets") or [])
-            if reusable_count:
-                asset_word = "asset" if reusable_count == 1 else "assets"
-                assets = QLabel(
-                    f"{reusable_count:,} reusable {asset_word} may support this direction."
-                )
-                assets.setObjectName("dimLabel")
-                assets.setWordWrap(True)
-                panel.add_widget(assets)
-            actions = QHBoxLayout()
-            select = PrimaryButton("SELECT THIS OPPORTUNITY")
-            select.setAccessibleName(f"Select {title}")
-            select.clicked.connect(
-                lambda _checked=False, value=opportunity_id: self.select_opportunity(
-                    value
-                )
+            item.setData(
+                Qt.ItemDataRole.AccessibleTextRole,
+                f"Rank {index + 1}, {title}, {rank}, {confidence} evidence, "
+                f"{effort} effort, {reusable_count} reusable {asset_word}",
             )
-            why = SecondaryButton("Why this?")
-            why.setAccessibleName(f"View technical evidence for {title}")
-            why.clicked.connect(
-                lambda _checked=False, value=opportunity_id: self.open_opportunity_evidence(
-                    value
-                )
+            self.opportunity_list.addItem(item)
+            if opportunity_id == self._selected_opportunity_id:
+                selected_row = index
+        if count:
+            self.opportunity_list.setCurrentRow(selected_row)
+            self._preview_opportunity_choice()
+
+    def _chooser_opportunity_id(self) -> str | None:
+        item = self.opportunity_list.currentItem()
+        if item is None:
+            return None
+        return str(item.data(Qt.ItemDataRole.UserRole) or "") or None
+
+    @Slot()
+    def _preview_opportunity_choice(self) -> None:
+        opportunity = self._opportunity_by_id(self._chooser_opportunity_id())
+        enabled = opportunity is not None
+        self.choose_opportunity_button.setEnabled(enabled)
+        self.chooser_evidence_button.setEnabled(enabled)
+        if opportunity is None:
+            self.opportunity_preview.title_label.setText("SELECTED OPPORTUNITY")
+            self.opportunity_preview.set_body("Choose a row to compare its complete summary.")
+            return
+        title = product_friendly_title(
+            str(opportunity.get("title") or "Focused product opportunity")
+        )
+        reusable_count = len(opportunity.get("reusable_assets") or [])
+        asset_word = "asset is" if reusable_count == 1 else "assets are"
+        self.opportunity_preview.title_label.setText(title)
+        self.opportunity_preview.set_body(
+            str(
+                opportunity.get("summary")
+                or "Review the available evidence for this product direction."
             )
-            actions.addWidget(select)
-            actions.addWidget(why)
-            actions.addStretch(1)
-            panel.add_layout(actions)
-            self.opportunity_cards_layout.addWidget(panel)
-            self.opportunity_card_widgets.append(panel)
-            self.opportunity_select_buttons.append(select)
-            self.opportunity_why_buttons.append(why)
-        self.opportunity_cards_layout.addStretch(1)
+            + f"\n\n{reusable_count:,} reusable {asset_word} linked to this direction."
+        )
+
+    @Slot()
+    def select_chooser_opportunity(self) -> None:
+        opportunity_id = self._chooser_opportunity_id()
+        if opportunity_id:
+            self.select_opportunity(opportunity_id)
+
+    @Slot()
+    def open_chooser_opportunity_evidence(self) -> None:
+        opportunity_id = self._chooser_opportunity_id()
+        if opportunity_id:
+            self.open_opportunity_evidence(opportunity_id)
 
     @Slot()
     def open_opportunity_chooser(self) -> None:
@@ -1482,6 +1538,23 @@ class RelicWindow(QMainWindow):
             return
         self.open_technical_details(opportunity_id)
         self.tabs.setCurrentWidget(self.opportunities)
+
+    def _scope_technical_opportunities(self, opportunity_id: str | None) -> None:
+        """Keep the evidence table, tab count, selection, and detail in one scope."""
+
+        rows = list(self._all_opportunity_rows)
+        if opportunity_id:
+            rows = [
+                row
+                for row in rows
+                if str(row.get("opportunity_id") or "") == opportunity_id
+            ]
+        self.opportunities.set_rows(rows)
+        label = f"Opportunities ({len(rows)}"
+        if opportunity_id and rows:
+            label += " scoped"
+            self.opportunities.select_row(0)
+        self.tabs.setTabText(self.tabs.indexOf(self.opportunities), label + ")")
 
     @Slot()
     def toggle_update_diagnostics(self) -> None:
@@ -1874,7 +1947,10 @@ class RelicWindow(QMainWindow):
             [{**item, "_raw": item} for item in bundle.audit.duplicate_groups]
         )
         opportunities = bundle.discovery.opportunities if bundle.discovery else []
-        self.opportunities.set_rows([{**item, "_raw": item} for item in opportunities])
+        self._all_opportunity_rows = [
+            {**item, "_raw": item} for item in opportunities
+        ]
+        self.opportunities.set_rows(self._all_opportunity_rows)
         acquisition = bundle.acquisition.best_candidates if bundle.acquisition else []
         self.acquisition.set_rows([{**item, "_raw": item} for item in acquisition])
 

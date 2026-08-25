@@ -16,7 +16,7 @@ $ProgressPreference = "SilentlyContinue"
 $InstallerRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $KitRoot = (Resolve-Path (Join-Path $InstallerRoot "..\..")).Path
 if (-not $SourceArchive) {
-    $SourceArchive = Join-Path $KitRoot "releases\relic-auditor-1.0.2.zip"
+    $SourceArchive = Join-Path $KitRoot "releases\relic-auditor-1.0.3.zip"
 }
 if (-not $ExpectedSourceSha256) {
     throw "ExpectedSourceSha256 is required so the installer is built only from an explicitly verified frozen source archive."
@@ -121,7 +121,7 @@ function Sign-File {
 }
 
 if (-not [Environment]::Is64BitOperatingSystem) {
-    throw "Relic Auditor 1.0.2 supports 64-bit Windows only."
+    throw "Relic Auditor 1.0.3 supports 64-bit Windows only."
 }
 
 $ActualSourceHash = (Get-FileHash -LiteralPath $SourceArchive -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -145,7 +145,7 @@ $env:TEMP = $TestTempRoot
 $env:TMP = $TestTempRoot
 Get-ChildItem -LiteralPath $OutputDirectory -File -ErrorAction SilentlyContinue |
     Where-Object { $_.Name -in @(
-        "Relic-Auditor-Setup-1.0.2-x64.exe",
+        "Relic-Auditor-Setup-1.0.3-x64.exe",
         "SHA256SUMS.txt",
         "release-manifest.json",
         "INSTALLER-README.md"
@@ -154,14 +154,14 @@ Get-ChildItem -LiteralPath $OutputDirectory -File -ErrorAction SilentlyContinue 
 
 $UnpackedRoot = Join-Path $SafeBuildRoot "source-unpacked"
 Expand-Archive -LiteralPath $SourceArchive -DestinationPath $UnpackedRoot -Force
-$SourceRoot = Join-Path $UnpackedRoot "relic-auditor-1.0.2"
+$SourceRoot = Join-Path $UnpackedRoot "relic-auditor-1.0.3"
 if (-not (Test-Path -LiteralPath (Join-Path $SourceRoot "pyproject.toml") -PathType Leaf)) {
     throw "The canonical source root was not found after extraction."
 }
 $ProjectMetadata = Get-Content -LiteralPath (Join-Path $SourceRoot "pyproject.toml") -Raw
 $ProjectVersionLines = $ProjectMetadata -split '\r?\n'
-if ($ProjectVersionLines -notcontains 'version = "1.0.2"') {
-    throw "The source archive does not identify itself as Relic Auditor 1.0.2."
+if ($ProjectVersionLines -notcontains 'version = "1.0.3"') {
+    throw "The source archive does not identify itself as Relic Auditor 1.0.3."
 }
 
 $Launcher = Get-PythonLauncher
@@ -174,7 +174,7 @@ Invoke-Checked -Command $VenvPython -Arguments @("-m", "pip", "install", "--disa
 Invoke-Checked -Command $VenvPython -Arguments @("-m", "pytest", "-q", (Join-Path $KitRoot "tests"))
 Invoke-Checked -Command $VenvPython -Arguments @("-m", "pytest", "-q", (Join-Path $SourceRoot "tests"))
 $VersionOutput = (& $VenvPython "-m" "relic_auditor" "--version" 2>&1 | Out-String).Trim()
-if ($LASTEXITCODE -ne 0 -or $VersionOutput -ne "relic 1.0.2") {
+if ($LASTEXITCODE -ne 0 -or $VersionOutput -ne "relic 1.0.3") {
     throw "Unexpected source version output: $VersionOutput"
 }
 
@@ -202,7 +202,7 @@ foreach ($ExpectedExecutable in @($GuiExe, $CliExe)) {
 }
 
 $BundledVersion = (& $CliExe "--version" 2>&1 | Out-String).Trim()
-if ($LASTEXITCODE -ne 0 -or $BundledVersion -ne "relic 1.0.2") {
+if ($LASTEXITCODE -ne 0 -or $BundledVersion -ne "relic 1.0.3") {
     throw "Bundled CLI version verification failed: $BundledVersion"
 }
 Invoke-Checked -Command $CliExe -Arguments @("build-pack", "--help")
@@ -227,7 +227,7 @@ if ($GuiSmoke.ExitCode -ne 0) {
 
 $Compiler = Find-InnoSetup $InnoSetupPath
 Invoke-Checked -Command $Compiler -Arguments @("/Qp", (Join-Path $InstallerRoot "relic-auditor.iss"))
-$InstallerExe = Join-Path $OutputDirectory "Relic-Auditor-Setup-1.0.2-x64.exe"
+$InstallerExe = Join-Path $OutputDirectory "Relic-Auditor-Setup-1.0.3-x64.exe"
 if (-not (Test-Path -LiteralPath $InstallerExe -PathType Leaf)) {
     throw "Inno Setup did not produce the expected installer."
 }
@@ -249,7 +249,7 @@ try {
     $InstalledCli = Join-Path $CleanInstall "cli\relic.exe"
     $InstalledGui = Join-Path $CleanInstall "Relic Auditor.exe"
     $InstalledVersion = (& $InstalledCli "--version" 2>&1 | Out-String).Trim()
-    if ($LASTEXITCODE -ne 0 -or $InstalledVersion -ne "relic 1.0.2") {
+    if ($LASTEXITCODE -ne 0 -or $InstalledVersion -ne "relic 1.0.3") {
         throw "Installed CLI version verification failed: $InstalledVersion"
     }
     Invoke-Checked -Command $InstalledCli -Arguments @("build-pack", "--help")
@@ -295,7 +295,7 @@ try {
         throw "The in-place upgrade altered Relic user configuration."
     }
     $UpgradedVersion = (& $InstalledCli "--version" 2>&1 | Out-String).Trim()
-    if ($LASTEXITCODE -ne 0 -or $UpgradedVersion -ne "relic 1.0.2") {
+    if ($LASTEXITCODE -ne 0 -or $UpgradedVersion -ne "relic 1.0.3") {
         throw "In-place upgrade version verification failed: $UpgradedVersion"
     }
 
@@ -328,7 +328,7 @@ $InstallerSize = (Get-Item -LiteralPath $InstallerExe).Length
 $Signature = Get-AuthenticodeSignature -LiteralPath $InstallerExe
 $Manifest = [ordered]@{
     product = "Relic Auditor"
-    version = "1.0.2"
+    version = "1.0.3"
     architecture = "x64"
     minimum_windows_build = "10.0.17763"
     source_archive = (Split-Path -Leaf $SourceArchive)

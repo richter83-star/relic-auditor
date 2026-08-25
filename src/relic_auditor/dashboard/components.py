@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 from typing import Callable, Iterable
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QItemSelectionModel, QSize, Qt, Signal
 from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -756,6 +756,12 @@ class FindingsTable(QWidget):
         self.model = RecordTableModel(self._columns)
         self.table = QTableView()
         self.table.setModel(self.model)
+        self.table.setAccessibleName(
+            placeholder.replace("…", "").strip() + " results"
+        )
+        self.table.setAccessibleDescription(
+            "Select a row to read the complete record in the details pane."
+        )
         self.table.setSortingEnabled(True)
         self.table.setAlternatingRowColors(True)
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
@@ -864,6 +870,30 @@ class FindingsTable(QWidget):
             if row is not None:
                 rows.append(row)
         return rows
+
+    def select_row(self, row: int = 0) -> bool:
+        """Select one visible row and immediately populate its detail pane.
+
+        Contextual evidence views use this after narrowing the table to the
+        originating record.  The explicit helper keeps keyboard focus,
+        selection state, and the full-record inspector in sync instead of
+        showing an empty inspector beside a claimed scope.
+        """
+
+        if row < 0 or row >= self.model.rowCount():
+            self.table.clearSelection()
+            self.details.clear()
+            return False
+        index = self.model.index(row, 0)
+        self.table.selectionModel().select(
+            index,
+            QItemSelectionModel.SelectionFlag.ClearAndSelect
+            | QItemSelectionModel.SelectionFlag.Rows,
+        )
+        self.table.setCurrentIndex(index)
+        self.table.scrollTo(index)
+        self._selection_changed()
+        return True
 
     def _selection_changed(self) -> None:
         rows = self.selected_rows()
