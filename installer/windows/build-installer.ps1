@@ -109,11 +109,14 @@ function Invoke-PytestEvidence {
         "-m", "pytest", "-q", $TestPath, "--junitxml=$ResultPath"
     ) | ForEach-Object { Write-Host $_ }
     [xml]$Results = Get-Content -LiteralPath $ResultPath -Raw
-    $Suites = $Results.testsuites
-    $Tests = [int]$Suites.tests
-    $Failures = [int]$Suites.failures
-    $Errors = [int]$Suites.errors
-    $Skipped = [int]$Suites.skipped
+    $Suites = @($Results.SelectNodes('/testsuites/testsuite | /testsuite'))
+    if ($Suites.Count -eq 0) {
+        throw "Pytest did not produce a top-level JUnit test suite in $ResultPath."
+    }
+    $Tests = [int](($Suites | Measure-Object -Property tests -Sum).Sum)
+    $Failures = [int](($Suites | Measure-Object -Property failures -Sum).Sum)
+    $Errors = [int](($Suites | Measure-Object -Property errors -Sum).Sum)
+    $Skipped = [int](($Suites | Measure-Object -Property skipped -Sum).Sum)
     return [pscustomobject]@{
         total = $Tests
         passed = $Tests - $Failures - $Errors - $Skipped
