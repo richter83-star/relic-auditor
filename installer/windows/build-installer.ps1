@@ -2,10 +2,13 @@
 param(
     [string]$SourceArchive = "",
     [string]$ExpectedSourceSha256 = "",
+    [string]$SourceCommit = "",
     [string]$OutputDirectory = "",
     [string]$InnoSetupPath = "",
     [string]$SigningCertificate = "",
     [string]$SigningPassword = "",
+    [string]$PriorStableInstallerUrl = "https://github.com/richter83-star/relic-auditor/releases/download/v1.0.1/Relic-Auditor-Setup-1.0.1-x64.exe",
+    [string]$ExpectedPriorStableInstallerSha256 = "56c3e20c9cdcf8e2a6beae76b0e05d928e1af0002e92240c83d1ace773069d10",
     [switch]$KeepBuildDirectory
 )
 
@@ -20,6 +23,9 @@ if (-not $SourceArchive) {
 }
 if (-not $ExpectedSourceSha256) {
     throw "ExpectedSourceSha256 is required so the installer is built only from an explicitly verified frozen source archive."
+}
+if ($SourceCommit -notmatch '^[0-9a-fA-F]{40}$') {
+    throw "SourceCommit is required and must be the exact 40-character commit SHA used to create the source archive."
 }
 if (-not $OutputDirectory) {
     $OutputDirectory = Join-Path $KitRoot "release-output"
@@ -48,6 +54,72 @@ function Assert-EntitlementGate {
     $Output = (& $Command @Arguments 2>&1 | Out-String).Trim()
     if ($LASTEXITCODE -ne 2 -or $Output -notmatch "requires a higher Relic entitlement") {
         throw "$CapabilityName entitlement-gate smoke failed. Exit code: $LASTEXITCODE. Output: $Output"
+    }
+}
+
+function Get-ReadOnlyTreeDigest {
+    param([Parameter(Mandatory = $true)][string]$Root)
+    $ResolvedRoot = (Resolve-Path -LiteralPath $Root).Path
+    $Records = @("root|.")
+    foreach ($Item in Get-ChildItem -LiteralPath $ResolvedRoot -Force -Recurse | Sort-Object FullName) {
+        $Relative = [System.IO.Path]::GetRelativePath($ResolvedRoot, $Item.FullName).Replace('\', '/')
+        if ($Item.PSIsContainer) {
+            $Records += "directory|$Relative"
+        }
+        else {
+            $Hash = (Get-FileHash -LiteralPath $Item.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            $Records += "file|$Relative|$($Item.Length)|$Hash"
+        }
+    }
+    $Bytes = [System.Text.Encoding]::UTF8.GetBytes(($Records -join "`n"))
+    return [Convert]::ToHexString(
+        [System.Security.Cryptography.SHA256]::HashData($Bytes)
+    ).ToLowerInvariant()
+}
+
+function Assert-ReadOnlyCliSequence {
+    param(
+        [Parameter(Mandatory = $true)][string]$Command,
+        [Parameter(Mandatory = $true)][string]$Fixture,
+        [Parameter(Mandatory = $true)][string]$OutputRoot,
+        [Parameter(Mandatory = $true)][string]$Label
+    )
+    $Before = Get-ReadOnlyTreeDigest -Root $Fixture
+    Invoke-Checked -Command $Command -Arguments @("audit", $Fixture, "--output", (Join-Path $OutputRoot "audit"), "--technical-truth") |
+        ForEach-Object { Write-Host $_ }
+    Invoke-Checked -Command $Command -Arguments @("acquire", $Fixture, "--output", (Join-Path $OutputRoot "acquire")) |
+        ForEach-Object { Write-Host $_ }
+    Invoke-Checked -Command $Command -Arguments @("resurrect", $Fixture, "--output", (Join-Path $OutputRoot "resurrection")) |
+        ForEach-Object { Write-Host $_ }
+    $After = Get-ReadOnlyTreeDigest -Root $Fixture
+    if ($After -ne $Before) {
+        throw "$Label modified the scan fixture. Before: $Before. After: $After."
+    }
+    Write-Host "$Label read-only target digest: $After"
+    return $After
+}
+
+function Invoke-PytestEvidence {
+    param(
+        [Parameter(Mandatory = $true)][string]$Python,
+        [Parameter(Mandatory = $true)][string]$TestPath,
+        [Parameter(Mandatory = $true)][string]$ResultPath
+    )
+    Invoke-Checked -Command $Python -Arguments @(
+        "-m", "pytest", "-q", $TestPath, "--junitxml=$ResultPath"
+    ) | ForEach-Object { Write-Host $_ }
+    [xml]$Results = Get-Content -LiteralPath $ResultPath -Raw
+    $Suites = $Results.testsuites
+    $Tests = [int]$Suites.tests
+    $Failures = [int]$Suites.failures
+    $Errors = [int]$Suites.errors
+    $Skipped = [int]$Suites.skipped
+    return [pscustomobject]@{
+        total = $Tests
+        passed = $Tests - $Failures - $Errors - $Skipped
+        failed = $Failures
+        errors = $Errors
+        skipped = $Skipped
     }
 }
 
@@ -171,8 +243,29 @@ $VenvPython = Join-Path $VenvRoot "Scripts\python.exe"
 Invoke-Checked -Command $VenvPython -Arguments @("-m", "pip", "install", "--disable-pip-version-check", "--upgrade", "pip", "setuptools", "wheel")
 Invoke-Checked -Command $VenvPython -Arguments @("-m", "pip", "install", "--disable-pip-version-check", "-r", (Join-Path $InstallerRoot "requirements-build.txt"))
 Invoke-Checked -Command $VenvPython -Arguments @("-m", "pip", "install", "--disable-pip-version-check", "$SourceRoot[all]")
-Invoke-Checked -Command $VenvPython -Arguments @("-m", "pytest", "-q", (Join-Path $KitRoot "tests"))
-Invoke-Checked -Command $VenvPython -Arguments @("-m", "pytest", "-q", (Join-Path $SourceRoot "tests"))
+$CheckoutTestEvidence = Invoke-PytestEvidence `
+    -Python $VenvPython `
+    -TestPath (Join-Path $KitRoot "tests") `
+    -ResultPath (Join-Path $SafeBuildRoot "checkout-tests.xml")
+$FrozenSourceTestEvidence = Invoke-PytestEvidence `
+    -Python $VenvPython `
+    -TestPath (Join-Path $SourceRoot "tests") `
+    -ResultPath (Join-Path $SafeBuildRoot "frozen-source-tests.xml")
+if (
+    $CheckoutTestEvidence.passed -ne $FrozenSourceTestEvidence.passed -or
+    $CheckoutTestEvidence.skipped -ne $FrozenSourceTestEvidence.skipped -or
+    $CheckoutTestEvidence.failed -ne $FrozenSourceTestEvidence.failed -or
+    $CheckoutTestEvidence.errors -ne $FrozenSourceTestEvidence.errors
+) {
+    throw "Checked-out and frozen-source test evidence do not match."
+}
+Write-Host (
+    "Frozen source tests: {0} passed, {1} skipped, {2} failed, {3} errors" -f
+    $FrozenSourceTestEvidence.passed,
+    $FrozenSourceTestEvidence.skipped,
+    $FrozenSourceTestEvidence.failed,
+    $FrozenSourceTestEvidence.errors
+)
 $VersionOutput = (& $VenvPython "-m" "relic_auditor" "--version" 2>&1 | Out-String).Trim()
 if ($LASTEXITCODE -ne 0 -or $VersionOutput -ne "relic 1.0.2") {
     throw "Unexpected source version output: $VersionOutput"
@@ -217,9 +310,8 @@ Assert-EntitlementGate -Command $CliExe -Arguments @(
 $Fixture = Join-Path $SourceRoot "tests\fixtures\false_compliance"
 $BundleSmokeRoot = Join-Path $SafeBuildRoot "bundle-smoke"
 New-Item -ItemType Directory -Path $BundleSmokeRoot | Out-Null
-Invoke-Checked -Command $CliExe -Arguments @("audit", $Fixture, "--output", (Join-Path $BundleSmokeRoot "audit"), "--technical-truth")
-Invoke-Checked -Command $CliExe -Arguments @("acquire", $Fixture, "--output", (Join-Path $BundleSmokeRoot "acquire"))
-Invoke-Checked -Command $CliExe -Arguments @("resurrect", $Fixture, "--output", (Join-Path $BundleSmokeRoot "resurrection"))
+$BundledReadOnlyDigest = Assert-ReadOnlyCliSequence `
+    -Command $CliExe -Fixture $Fixture -OutputRoot $BundleSmokeRoot -Label "Bundled CLI"
 $GuiSmoke = Start-Process -FilePath $GuiExe -ArgumentList "--smoke-test" -PassThru -Wait
 if ($GuiSmoke.ExitCode -ne 0) {
     throw "Bundled Evidence Console smoke test failed with exit code $($GuiSmoke.ExitCode)."
@@ -263,9 +355,8 @@ try {
     ) -CapabilityName "Installed Assisted Build"
     $InstallSmokeRoot = Join-Path $SafeBuildRoot "installed-smoke"
     New-Item -ItemType Directory -Path $InstallSmokeRoot | Out-Null
-    Invoke-Checked -Command $InstalledCli -Arguments @("audit", $Fixture, "--output", (Join-Path $InstallSmokeRoot "audit"), "--technical-truth")
-    Invoke-Checked -Command $InstalledCli -Arguments @("acquire", $Fixture, "--output", (Join-Path $InstallSmokeRoot "acquire"))
-    Invoke-Checked -Command $InstalledCli -Arguments @("resurrect", $Fixture, "--output", (Join-Path $InstallSmokeRoot "resurrection"))
+    $InstalledReadOnlyDigest = Assert-ReadOnlyCliSequence `
+        -Command $InstalledCli -Fixture $Fixture -OutputRoot $InstallSmokeRoot -Label "Installed CLI"
     $InstalledGuiSmoke = Start-Process -FilePath $InstalledGui -ArgumentList "--smoke-test" -PassThru -Wait
     if ($InstalledGuiSmoke.ExitCode -ne 0) {
         throw "Installed Evidence Console smoke test failed with exit code $($InstalledGuiSmoke.ExitCode)."
@@ -323,12 +414,70 @@ finally {
     }
 }
 
+$PriorStableInstaller = Join-Path $SafeBuildRoot "Relic-Auditor-Setup-1.0.1-x64.exe"
+Invoke-WebRequest -Uri $PriorStableInstallerUrl -OutFile $PriorStableInstaller -UseBasicParsing
+$PriorStableHash = (Get-FileHash -LiteralPath $PriorStableInstaller -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($PriorStableHash -ne $ExpectedPriorStableInstallerSha256.ToLowerInvariant()) {
+    throw "Prior stable installer hash mismatch. Expected $ExpectedPriorStableInstallerSha256 but found $PriorStableHash."
+}
+
+$StableUpgradeInstall = Join-Path $SafeBuildRoot "stable-upgrade"
+$UpgradeSentinel = Join-Path $ConfigRoot ("stable-upgrade-preservation-" + [Guid]::NewGuid().ToString("N") + ".txt")
+Set-Content -LiteralPath $UpgradeSentinel -Value "Relic user configuration must survive a stable-version upgrade." -Encoding UTF8
+try {
+    $StableInstallProcess = Start-Process -FilePath $PriorStableInstaller -ArgumentList @(
+        "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$StableUpgradeInstall`""
+    ) -PassThru -Wait
+    if ($StableInstallProcess.ExitCode -ne 0) {
+        throw "Stable v1.0.1 installation failed with exit code $($StableInstallProcess.ExitCode)."
+    }
+    $StableCli = Join-Path $StableUpgradeInstall "cli\relic.exe"
+    $StableVersion = (& $StableCli "--version" 2>&1 | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $StableVersion -ne "relic 1.0.1") {
+        throw "Expected stable v1.0.1 before upgrade, found: $StableVersion"
+    }
+
+    $StableUpgradeProcess = Start-Process -FilePath $InstallerExe -ArgumentList @(
+        "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$StableUpgradeInstall`""
+    ) -PassThru -Wait
+    if ($StableUpgradeProcess.ExitCode -ne 0) {
+        throw "v1.0.1 to v1.0.2 upgrade failed with exit code $($StableUpgradeProcess.ExitCode)."
+    }
+    $UpgradedStableVersion = (& $StableCli "--version" 2>&1 | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $UpgradedStableVersion -ne "relic 1.0.2") {
+        throw "Expected v1.0.2 after stable upgrade, found: $UpgradedStableVersion"
+    }
+    if (-not (Test-Path -LiteralPath $UpgradeSentinel -PathType Leaf)) {
+        throw "The v1.0.1 to v1.0.2 upgrade altered Relic user configuration."
+    }
+
+    $StableUninstaller = Join-Path $StableUpgradeInstall "unins000.exe"
+    $StableUninstallProcess = Start-Process -FilePath $StableUninstaller -ArgumentList @(
+        "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"
+    ) -PassThru -Wait
+    if ($StableUninstallProcess.ExitCode -ne 0) {
+        throw "Upgraded installation uninstall failed with exit code $($StableUninstallProcess.ExitCode)."
+    }
+    if (Test-Path -LiteralPath (Join-Path $StableUpgradeInstall "Relic Auditor.exe") -PathType Leaf) {
+        throw "The upgraded installation uninstaller left the application executable behind."
+    }
+    if (-not (Test-Path -LiteralPath $UpgradeSentinel -PathType Leaf)) {
+        throw "Uninstall after stable upgrade deleted Relic user configuration."
+    }
+}
+finally {
+    if (Test-Path -LiteralPath $UpgradeSentinel -PathType Leaf) {
+        Remove-Item -LiteralPath $UpgradeSentinel -Force
+    }
+}
+
 $InstallerHash = (Get-FileHash -LiteralPath $InstallerExe -Algorithm SHA256).Hash.ToLowerInvariant()
 $InstallerSize = (Get-Item -LiteralPath $InstallerExe).Length
 $Signature = Get-AuthenticodeSignature -LiteralPath $InstallerExe
 $Manifest = [ordered]@{
     product = "Relic Auditor"
     version = "1.0.2"
+    source_commit = $SourceCommit.ToLowerInvariant()
     architecture = "x64"
     minimum_windows_build = "10.0.17763"
     source_archive = (Split-Path -Leaf $SourceArchive)
@@ -340,6 +489,11 @@ $Manifest = [ordered]@{
     python_bundled = $true
     python_required_on_target = $false
     source_tests_run = $true
+    source_tests_total = $FrozenSourceTestEvidence.total
+    source_tests_passed = $FrozenSourceTestEvidence.passed
+    source_tests_skipped = $FrozenSourceTestEvidence.skipped
+    source_tests_failed = $FrozenSourceTestEvidence.failed
+    source_tests_errors = $FrozenSourceTestEvidence.errors
     source_test_exclusions = @()
     source_test_exclusion_reason = ""
     bundled_cli_smoke = "passed"
@@ -349,9 +503,15 @@ $Manifest = [ordered]@{
     bundled_assisted_build_entitlement_gate_smoke = "passed"
     clean_install_smoke = "passed"
     installed_resurrection_smoke = "passed"
+    bundled_read_only_target_digest = $BundledReadOnlyDigest
+    installed_read_only_target_digest = $InstalledReadOnlyDigest
     installed_build_pack_entitlement_gate_smoke = "passed"
     installed_assisted_build_entitlement_gate_smoke = "passed"
-    in_place_upgrade_smoke = "passed"
+    in_place_upgrade_smoke = "passed_same_version_reinstall"
+    same_version_repair_smoke = "passed"
+    stable_upgrade_from = "1.0.1"
+    stable_upgrade_installer_sha256 = $PriorStableHash
+    stable_upgrade_smoke = "passed"
     stale_runtime_cleanup = "passed"
     uninstall_preserved_user_config = $true
     cli_path_cleanup = "passed"

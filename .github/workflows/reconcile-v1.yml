@@ -113,6 +113,7 @@ jobs:
             & "installer/windows/build-installer.ps1" `
               -SourceArchive "${{ steps.source.outputs.archive }}" `
               -ExpectedSourceSha256 "${{ steps.source.outputs.sha256 }}" `
+              -SourceCommit "${{ github.event.pull_request.head.sha }}" `
               -OutputDirectory "release-output" `
               -SigningCertificate "${{ steps.signing.outputs.certificate }}" `
               -SigningPassword $env:WINDOWS_SIGNING_PFX_PASSWORD
@@ -120,6 +121,7 @@ jobs:
             & "installer/windows/build-installer.ps1" `
               -SourceArchive "${{ steps.source.outputs.archive }}" `
               -ExpectedSourceSha256 "${{ steps.source.outputs.sha256 }}" `
+              -SourceCommit "${{ github.event.pull_request.head.sha }}" `
               -OutputDirectory "release-output"
           }
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

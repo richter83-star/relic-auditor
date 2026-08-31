@@ -67,9 +67,18 @@ def test_clean_install_and_uninstall_are_release_gates() -> None:
     assert '"resurrect", $Fixture' in build
     for required in (
         "Frozen source hash mismatch",
+        "SourceCommit is required",
+        "source_commit = $SourceCommit.ToLowerInvariant()",
+        "Invoke-PytestEvidence",
+        "source_tests_passed",
+        "source_tests_skipped",
         "$env:TEMP = $TestTempRoot",
         "$env:TMP = $TestTempRoot",
         "bundle-smoke",
+        "Assert-ReadOnlyCliSequence",
+        "Get-ReadOnlyTreeDigest",
+        "bundled_read_only_target_digest",
+        "installed_read_only_target_digest",
         "clean-install",
         "In-place upgrade verification failed",
         "obsolete-runtime.dll",
@@ -84,6 +93,14 @@ def test_clean_install_and_uninstall_are_release_gates() -> None:
         "bundled_assisted_build_entitlement_gate_smoke",
         "installed_assisted_build_entitlement_gate_smoke",
         "Assert-EntitlementGate",
+        "Relic-Auditor-Setup-1.0.1-x64.exe",
+        "56c3e20c9cdcf8e2a6beae76b0e05d928e1af0002e92240c83d1ace773069d10",
+        'StableVersion -ne "relic 1.0.1"',
+        'UpgradedStableVersion -ne "relic 1.0.2"',
+        'in_place_upgrade_smoke = "passed_same_version_reinstall"',
+        'same_version_repair_smoke = "passed"',
+        'stable_upgrade_from = "1.0.1"',
+        'stable_upgrade_smoke = "passed"',
     ):
         assert required in build
 
@@ -96,6 +113,7 @@ def test_workflow_freezes_exact_commit_and_uploads_verified_artifacts() -> None:
     assert "git archive --format=zip --prefix=relic-auditor-1.0.2/" in workflow
     assert "Get-FileHash -LiteralPath $archive -Algorithm SHA256" in workflow
     assert "-ExpectedSourceSha256" in workflow
+    assert '-SourceCommit "${{ github.sha }}"' in workflow
     assert "releases/relic-auditor-1.0.2.zip" in workflow
     assert "SkipSourceTests" not in workflow
     assert "actions/upload-artifact@v4" in workflow
