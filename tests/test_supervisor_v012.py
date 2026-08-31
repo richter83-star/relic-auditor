@@ -21,11 +21,40 @@ from relic_auditor.supervisor import (
     codex_builder_action,
     process_action,
 )
+from relic_auditor.supervisor.ledger import AppendOnlyLedger
 
 from test_supervisor_v011 import _exported_pack
 
 
 PREMIUM = entitlement_for_testing("premium")
+
+
+def test_ledger_serializes_concurrent_appends(tmp_path: Path) -> None:
+    path = tmp_path / "ledger.jsonl"
+    ledgers = [AppendOnlyLedger(path) for _ in range(8)]
+    errors: list[BaseException] = []
+
+    def append_batch(ledger: AppendOnlyLedger, worker: int) -> None:
+        try:
+            for item in range(12):
+                ledger.append("concurrent_test", {"worker": worker, "item": item})
+        except BaseException as exc:
+            errors.append(exc)
+
+    workers = [
+        threading.Thread(target=append_batch, args=(ledger, number))
+        for number, ledger in enumerate(ledgers)
+    ]
+    for worker in workers:
+        worker.start()
+    for worker in workers:
+        worker.join(timeout=10)
+
+    assert not errors
+    assert all(not worker.is_alive() for worker in workers)
+    status = ledgers[0].verify()
+    assert status["valid"] is True
+    assert status["entries"] == 96
 
 
 def test_production_policy_accepts_only_exact_codex_profile() -> None:
