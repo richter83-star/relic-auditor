@@ -1,3 +1,5 @@
+#Requires -Version 7.2
+
 [CmdletBinding()]
 param(
     [string]$SourceArchive = "",
@@ -223,7 +225,9 @@ Get-ChildItem -LiteralPath $OutputDirectory -File -ErrorAction SilentlyContinue 
         "Relic-Auditor-Setup-1.0.2-x64.exe",
         "SHA256SUMS.txt",
         "release-manifest.json",
-        "INSTALLER-README.md"
+        "INSTALLER-README.md",
+        "checkout-tests.xml",
+        "frozen-source-tests.xml"
     ) } |
     Remove-Item -Force
 
@@ -525,6 +529,8 @@ $Manifest = [ordered]@{
 $Manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $OutputDirectory "release-manifest.json") -Encoding UTF8
 "$InstallerHash  $(Split-Path -Leaf $InstallerExe)" | Set-Content -LiteralPath (Join-Path $OutputDirectory "SHA256SUMS.txt") -Encoding ASCII
 Copy-Item -LiteralPath (Join-Path $InstallerRoot "INSTALLER-README.md") -Destination (Join-Path $OutputDirectory "INSTALLER-README.md") -Force
+Copy-Item -LiteralPath (Join-Path $SafeBuildRoot "checkout-tests.xml") -Destination (Join-Path $OutputDirectory "checkout-tests.xml") -Force
+Copy-Item -LiteralPath (Join-Path $SafeBuildRoot "frozen-source-tests.xml") -Destination (Join-Path $OutputDirectory "frozen-source-tests.xml") -Force
 
 Write-Host "Windows installer complete: $InstallerExe"
 Write-Host "SHA-256: $InstallerHash"

@@ -63,6 +63,10 @@ def test_clean_install_and_uninstall_are_release_gates() -> None:
     assert "Relic Auditor 1.0.2" in dashboard
     assert "relic_auditor.entrypoint" in cli_entrypoint
     assert "Relic-Auditor-Setup-1.0.2-x64.exe" in installer_readme
+    assert build.startswith("#Requires -Version 7.2")
+    assert "PowerShell 7.2 or later" in installer_readme
+    assert 'Join-Path $OutputDirectory "checkout-tests.xml"' in build
+    assert 'Join-Path $OutputDirectory "frozen-source-tests.xml"' in build
     assert "0.12.0" not in installer_readme.splitlines()[0]
     assert '"resurrect", $Fixture' in build
     for required in (
@@ -118,4 +122,17 @@ def test_workflow_freezes_exact_commit_and_uploads_verified_artifacts() -> None:
     assert "SkipSourceTests" not in workflow
     assert "actions/upload-artifact@v4" in workflow
     assert "Relic-Auditor-1.0.2-RC-Windows-x64" in workflow
+    assert "persist-credentials: false" in workflow
     assert re.search(r"WINDOWS_SIGNING_PFX_BASE64.*secrets", workflow)
+
+
+def test_validation_workflows_do_not_persist_checkout_credentials() -> None:
+    workflows = (
+        ROOT / ".github" / "workflows" / "windows-installer.yml",
+        ROOT / ".github" / "workflows" / "reconcile-v1.yml",
+    )
+    for path in workflows:
+        workflow = path.read_text(encoding="utf-8")
+        assert workflow.count("uses: actions/checkout@v4") == workflow.count(
+            "persist-credentials: false"
+        )

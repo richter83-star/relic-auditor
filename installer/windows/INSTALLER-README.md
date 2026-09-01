@@ -29,6 +29,11 @@ This candidate preserves the validated v1.0.1 engines and security boundaries wh
 - 64-bit Windows 10 version 1809 or newer
 - 64-bit Windows 11
 
+## Build prerequisite
+
+Building the installer from source requires PowerShell 7.2 or later. The
+installed application does not require PowerShell 7.
+
 ## Verify the installer artifact
 
 Use PowerShell to calculate the installer SHA-256 and compare it with `SHA256SUMS.txt` from the same verified artifact set.

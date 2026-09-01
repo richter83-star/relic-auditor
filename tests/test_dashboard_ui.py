@@ -615,12 +615,13 @@ def test_cancel_leaves_target_unchanged(window, app) -> None:
 
 def test_keyboard_focus_reaches_primary_controls(window, app) -> None:
     _laid_out(window, app, 1600, 900)
-    advanced = [
-        window.mode,
-        window.include_hidden,
-        window.use_llm,
-    ]
-    for widget in advanced:
+
+    window.open_technical_details()
+    assert window.shell_stack.currentWidget() is window.technical_shell
+    window.open_settings()
+    window.settings_tabs.setCurrentWidget(window.settings_scan_tab)
+    app.processEvents()
+    for widget in (window.mode, window.include_hidden):
         assert widget.focusPolicy() != Qt.FocusPolicy.NoFocus, (
             f"{widget.accessibleName() or widget} is not keyboard reachable"
         )
@@ -628,7 +629,14 @@ def test_keyboard_focus_reaches_primary_controls(window, app) -> None:
         app.processEvents()
         assert widget.hasFocus()
 
-    window.close_technical_details()
+    window.settings_tabs.setCurrentWidget(window.settings_reasoning_tab)
+    app.processEvents()
+    assert window.use_llm.focusPolicy() != Qt.FocusPolicy.NoFocus
+    window.use_llm.setFocus()
+    app.processEvents()
+    assert window.use_llm.hasFocus()
+
+    window.close_secondary_surface()
     window.target_selector.set_path(tempfile.gettempdir())
     app.processEvents()
     for widget in (window.target_selector.field, window.run_button):
