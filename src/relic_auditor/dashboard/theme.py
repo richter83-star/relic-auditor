@@ -528,6 +528,33 @@ QHeaderView::section {{
 QHeaderView::section:hover {{ color: {p.yellow}; }}
 QTableCornerButton::section {{ background: {p.surface}; border: none; }}
 
+/* ---- ranked lists --------------------------------------------------- */
+QListWidget {{
+    background: {p.inset};
+    border: 1px solid {p.border_strong};
+    border-radius: {r.md}px;
+    color: {p.text_muted};
+    outline: none;
+    padding: {s.xs}px;
+}}
+QListWidget::item {{
+    background: {p.panel};
+    border: 1px solid {p.border};
+    border-radius: {r.sm}px;
+    padding: {s.sm}px {s.md}px;
+    margin: {s.xxs}px 0;
+}}
+QListWidget::item:hover {{
+    background: {p.panel_hover};
+    border-color: {p.border_luminous};
+}}
+QListWidget::item:selected {{
+    background: {p.yellow_wash};
+    color: {p.yellow};
+    border-color: {p.yellow_dim};
+}}
+QListWidget:focus {{ border-color: {p.yellow}; }}
+
 /* ---- tabs ------------------------------------------------------------ */
 QTabWidget::pane {{ border: none; background: {p.canvas}; }}
 QTabBar {{ qproperty-drawBase: 0; }}

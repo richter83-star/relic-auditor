@@ -1,17 +1,42 @@
 # Build status
 
-Relic Auditor v1.0.1 is the current public release. The repository's authoritative `main` line is the reconciled history containing the validated v0.12 production foundation plus the selectively ported Resurrection and Technical Truth work.
+Relic Auditor v1.0.1 remains the current public release. The repository's
+authoritative `main` line now also contains the merged v1.0.2 focused product
+journey. v1.0.3 is the active correction candidate; it tightens opportunity
+selection and contextual Technical Evidence without changing the scanner,
+Build Pack, Supervisor, entitlement, updater, or target-safety boundaries.
 
 ## Authoritative repository state
 
-- authoritative `main` cutover commit: `f78204b93c9b3279df14ea830dccf4247b29b44a`
-- preserved disconnected historical line: `archive/disconnected-main-v1.0.0` at `ee216fab38d4560acfdc6d2c9709a0635842f4df`
+- authoritative `main` head after the v1.0.2 merge: `8b16f3b46b02981ca0e17d59f3ab54e090898a40`
+- active v1.0.3 candidate branch: `build/v1.0.3-final-product`
 - public release tag: `v1.0.1`
 - tag target / canonical release commit: `300d4efeb6747671ade474e51fed8e45b229c757`
 - canonical release tree: `05a2e8efc3aac86760f00cbdfbee4d6cf84c350c`
 - public release: https://github.com/richter83-star/relic-auditor/releases/tag/v1.0.1
 
-The cutover commit intentionally connects the previously disconnected histories while retaining the exact canonical v1.0.1 release tree. The tag remains on the exact commit whose source and Windows artifacts were validated.
+The v1.0.1 tag remains on the exact commit whose source and Windows artifacts
+were validated. Neither the merged v1.0.2 source nor the v1.0.3 candidate
+creates a public release, signed installer, stable update manifest, or updater
+authorization.
+
+## Active v1.0.3 candidate
+
+The v1.0.3 candidate is intentionally based on the current `main` head rather
+than directly merging the older correction branch. This preserves all final
+v1.0.2 release-hardening changes, including exact-head source provenance,
+retained JUnit evidence, non-persistent checkout credentials, and serialized
+Supervisor state writes.
+
+Before a v1.0.3 release can be approved, both required pull-request jobs must
+pass against the exact candidate head:
+
+- `source-validation`
+- `windows-installer-rc`
+
+The Windows job must also prove a clean install, same-version repair, upgrade
+from the public v1.0.1 installer, configuration preservation, uninstall/PATH
+cleanup, read-only target behavior, and exact frozen-source test parity.
 
 ## Release validation
 

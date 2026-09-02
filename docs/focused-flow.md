@@ -1,6 +1,6 @@
 # Focused Flow
 
-Relic Auditor v1.0.2 follows one product rule:
+Relic Auditor v1.0.3 follows one product rule:
 
 > One screen. One question. One primary action.
 
@@ -26,7 +26,7 @@ Selecting a different target intentionally starts a new workflow. Completed repo
 
 The Answer begins with a plain-English conclusion. It then emphasizes one product opportunity, a compact reusable-assets/attention summary, and the recommended next move.
 
-Other opportunities opens a lightweight ranked chooser. Selecting a direction updates Answer and Prepare as view state over the same scan. A contextual **Why this?** link is the deliberate route from a product direction into its Technical Evidence.
+Other opportunities opens a compact ranked list with one shared **Select opportunity** action. Highlighting a direction reveals its full summary without committing the choice. Selecting it updates Answer and Prepare as view state over the same scan. **View evidence** opens Technical Evidence already scoped to that exact direction, with its complete record selected and visible.
 
 ## Secondary surfaces
 
@@ -38,11 +38,11 @@ Technical Evidence remembers its origin. Returning from evidence restores the or
 
 ## Evidence disclosure
 
-Normal users receive the decision. Experts deliberately request the proof through contextual links such as Why this?, View technical evidence, and Review reusable assets. Technical Evidence contains completed evidence and reasoning results, never scan configuration or provider setup/login controls.
+Normal users receive the decision. Experts deliberately request the proof through contextual links such as View evidence, View technical evidence, and Review reusable assets. Technical Evidence contains completed evidence and reasoning results, never scan configuration or provider setup/login controls.
 
 ## Plan presentation
 
-The signed entitlement engine remains fail-closed. Because paid production activation is not provisioned, the v1.0.2 plan dialog contains no license-key field, Activate button, Deactivate button, or engineering placeholder. It presents Free and marks Pro and Premium as coming soon.
+The signed entitlement engine remains fail-closed. Because paid production activation is not provisioned, the v1.0.3 plan dialog contains no license-key field, Activate button, Deactivate button, or engineering placeholder. It presents Free and marks Pro and Premium as coming soon.
 
 Free, Pro, and Premium users can inspect Answer, choose an opportunity, and review the Prepare screen. Premium is checked only when **Create Build Pack** is requested. UI simplification never grants that capability: domain services still independently enforce Build Pack preparation and export, so manipulating widgets cannot authorize it.
 

@@ -8,6 +8,8 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 pytest.importorskip("PySide6.QtWidgets", exc_type=ImportError)
 
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFontMetrics
 from PySide6.QtWidgets import QApplication, QLabel
 
 from relic_auditor.audit import audit_estate
@@ -241,26 +243,43 @@ def test_other_opportunities_is_a_ranked_chooser_with_contextual_evidence(
         assert window.shell_stack.currentWidget() is window.product_shell
         assert window.flow_stack.currentWidget() is window.opportunity_page
         assert window.shell_stack.currentWidget() is not window.technical_shell
-        assert len(window.opportunity_card_widgets) == 2
-        assert len(window.opportunity_select_buttons) == 2
-        assert len(window.opportunity_why_buttons) == 2
-        card_text = [
-            " ".join(label.text() for label in card.findChildren(QLabel))
-            for card in window.opportunity_card_widgets
+        assert window.opportunity_list.count() == 2
+        assert window.opportunity_list.currentRow() == 0
+        assert "Consolidated full-stack platform" in (
+            window.opportunity_list.item(0).text()
+        )
+        assert "Unify the existing application surface" in (
+            window.opportunity_preview.body_label.text()
+        )
+        assert [button.text() for button in _visible_primary_actions(window)] == [
+            "SELECT OPPORTUNITY"
         ]
-        assert "Unify the existing application surface" in card_text[0]
-        assert "Reusable internal platform layer" in card_text[1]
+
+        window.opportunity_list.setCurrentRow(1)
+        app.processEvents()
+        assert "Reusable internal platform layer" in (
+            window.opportunity_preview.title_label.text()
+        )
 
         window.open_opportunity_evidence("opp_secondary")
         app.processEvents()
         assert window.shell_stack.currentWidget() is window.technical_shell
         assert "Reusable internal platform layer" in window.technical_context.text()
+        assert "Scoped to opportunity" in window.technical_context.text()
         assert window.back_to_product_button.text() == "Back to Opportunity"
+        assert window.opportunities.row_count() == 1
+        assert window.tabs.tabText(window.tabs.indexOf(window.opportunities)) == (
+            "Opportunities (1 scoped)"
+        )
+        assert '"opportunity_id": "opp_secondary"' in (
+            window.opportunities.details.toPlainText()
+        )
         window.close_technical_details()
         assert window.flow.state is FlowState.OPPORTUNITY_CHOOSER
         assert window.flow_stack.currentWidget() is window.opportunity_page
+        assert window.opportunities.row_count() == 2
 
-        window.select_opportunity("opp_secondary")
+        window.select_chooser_opportunity()
         app.processEvents()
         assert window.flow.state is FlowState.OPPORTUNITY_SELECTED
         assert window.flow_stack.currentWidget() is window.answer_page
@@ -271,6 +290,46 @@ def test_other_opportunities_is_a_ranked_chooser_with_contextual_evidence(
         window.prepare_leading_product()
         assert window.flow.state is FlowState.PREPARE_PRODUCT
         assert "Reusable internal platform layer" in window.prepare_heading.text()
+    finally:
+        window.close()
+
+
+def test_opportunity_chooser_has_keyboard_focus_and_reflows_at_minimum_size(
+    app: QApplication, tmp_path: Path
+) -> None:
+    bundle = _bundle(tmp_path)
+    window = _ready_window(app, bundle, PREMIUM)
+    try:
+        window.resize(960, 600)
+        window.open_opportunity_chooser()
+        app.processEvents()
+
+        assert window.opportunity_list.accessibleName() == (
+            "Ranked product opportunities"
+        )
+        assert window.opportunity_list.focusPolicy() != Qt.FocusPolicy.NoFocus
+        assert window.choose_opportunity_button.focusPolicy() != Qt.FocusPolicy.NoFocus
+        assert window.chooser_evidence_button.focusPolicy() != Qt.FocusPolicy.NoFocus
+        assert (
+            window.opportunity_list.horizontalScrollBarPolicy()
+            == Qt.ScrollBarPolicy.ScrollBarAlwaysOff
+        )
+
+        for button in (
+            window.choose_opportunity_button,
+            window.chooser_evidence_button,
+        ):
+            metrics = QFontMetrics(button.font())
+            assert button.height() >= metrics.height()
+            assert button.width() >= metrics.horizontalAdvance(button.text())
+            right_edge = button.mapTo(window, button.rect().topRight()).x()
+            assert right_edge <= window.width()
+
+        window.open_chooser_opportunity_evidence()
+        app.processEvents()
+        assert window.opportunities.table.accessibleName().endswith("results")
+        assert window.opportunities.table.currentIndex().isValid()
+        assert window.opportunities.details.toPlainText()
     finally:
         window.close()
 
