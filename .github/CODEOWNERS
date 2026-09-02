@@ -1,3 +1,6 @@
 # Relic Auditor repository review owner.
 # Branch protection should require CODEOWNER review once GitHub rules are enabled.
 * @richter83-star
+
+# Signing policy changes require explicit ownership even if the catch-all changes.
+/.signpath/** @richter83-star

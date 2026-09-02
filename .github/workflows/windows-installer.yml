@@ -2,15 +2,6 @@ name: Build Relic Auditor v1.0.3 Windows RC
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - build/v1.0.3-final-product
-    paths:
-      - ".github/workflows/windows-installer.yml"
-      - "installer/windows/**"
-      - "pyproject.toml"
-      - "src/**"
-      - "tests/**"
 
 permissions:
   contents: read
@@ -24,7 +15,7 @@ jobs:
       WINDOWS_SIGNING_PFX_PASSWORD: ${{ secrets.WINDOWS_SIGNING_PFX_PASSWORD }}
 
     steps:
-      - name: Check out focused-flow branch
+      - name: Check out selected release-candidate commit
         uses: actions/checkout@v4
         with:
           fetch-depth: 0

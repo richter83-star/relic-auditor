@@ -1,46 +1,44 @@
 # Build status
 
 Relic Auditor v1.0.1 remains the current public release. The repository's
-authoritative `main` line now also contains the merged v1.0.2 focused product
-journey. v1.0.3 is the active correction candidate; it tightens opportunity
-selection and contextual Technical Evidence without changing the scanner,
-Build Pack, Supervisor, entitlement, updater, or target-safety boundaries.
+authoritative `main` line now contains the merged and validated v1.0.3 focused
+product correction. v1.0.3 tightens opportunity selection and contextual
+Technical Evidence without changing the scanner, Build Pack, Supervisor,
+entitlement, updater, or target-safety boundaries.
 
 ## Authoritative repository state
 
-- authoritative `main` head after the v1.0.2 merge: `8b16f3b46b02981ca0e17d59f3ab54e090898a40`
-- active v1.0.3 candidate branch: `build/v1.0.3-final-product`
+- v1.0.3 reviewed source head: `dd14d84f5eddd403759eee923bbe70ddbf26d018`
+- v1.0.3 merge commit: `e8f77f61d0bbb95e3e55d61d26e4c2fff1cb69ba`
 - public release tag: `v1.0.1`
 - tag target / canonical release commit: `300d4efeb6747671ade474e51fed8e45b229c757`
 - canonical release tree: `05a2e8efc3aac86760f00cbdfbee4d6cf84c350c`
 - public release: https://github.com/richter83-star/relic-auditor/releases/tag/v1.0.1
 
 The v1.0.1 tag remains on the exact commit whose source and Windows artifacts
-were validated. Neither the merged v1.0.2 source nor the v1.0.3 candidate
-creates a public release, signed installer, stable update manifest, or updater
-authorization.
+were validated. The v1.0.3 merge does not create a public release, signed
+installer, stable update manifest, or updater authorization.
 
-## Active v1.0.3 candidate
+## Validated v1.0.3 candidate
 
-The v1.0.3 candidate is intentionally based on the current `main` head rather
-than directly merging the older correction branch. This preserves all final
-v1.0.2 release-hardening changes, including exact-head source provenance,
-retained JUnit evidence, non-persistent checkout credentials, and serialized
-Supervisor state writes.
+The v1.0.3 candidate was based on the merged v1.0.2 line and preserves its
+release-hardening changes, including exact-head source provenance, retained
+JUnit evidence, non-persistent checkout credentials, and serialized Supervisor
+state writes.
 
-Before a v1.0.3 release can be approved, both required pull-request jobs must
-pass against the exact candidate head:
+Both required pull-request jobs passed against the exact candidate head:
 
 - `source-validation`
 - `windows-installer-rc`
 
-The Windows job must also prove a clean install, same-version repair, upgrade
+The Windows job proved a clean install, same-version repair, upgrade
 from the public v1.0.1 installer, configuration preservation, uninstall/PATH
 cleanup, read-only target behavior, and exact frozen-source test parity.
 
 ## Release validation
 
-Canonical GitHub Actions run `32453647140` completed successfully on Windows Server 2025 / Python 3.12.
+Candidate GitHub Actions run `33580568870` and post-merge `main` validation run
+`33596917191` completed successfully on Windows / Python 3.12.
 
 It verified:
 
@@ -66,6 +64,15 @@ It verified:
 - release manifest and checksum generation
 - artifact upload
 
+The retained v1.0.3 RC evidence records:
+
+- Actions artifact ID: `9828395283`
+- Actions artifact ZIP SHA-256: `c7ca2c45cace3d49886e341ddfe5bf97ff433abf8bc29859e2625e631fe24d18`
+- frozen source SHA-256: `544e24b954c618db9a30a5bffdd63f95745df440270d8f23233337bdb7b0597d`
+- installer SHA-256: `e3079d9e6e06cdaf90e95855fcea7e49e55691b904f27eb3bbee26bfc5f1a67c`
+- installer size: `73,978,812` bytes
+- Authenticode: `NotSigned`
+
 ## Canonical v1.0.1 artifacts
 
 - Actions artifact ID: `9436635474`
@@ -90,8 +97,19 @@ Automatic updates must not be enabled until all of the following are provisioned
 4. a signed stable update manifest using the pinned update trust root; and
 5. permanent stable-manifest and installer hosting.
 
-## Repository governance still external
+## Signing and repository governance still external
 
-The connected GitHub automation does not expose repository ruleset / branch-protection administration. `main` should be protected in GitHub repository settings with required pull requests, required `source-validation` and `windows-installer-rc` checks, conversation resolution, and force-push / deletion blocking.
+The repository now contains a manual SignPath trusted-build workflow, provider
+artifact configuration, source/build policy, and fail-closed finalizer. They do
+not activate signing. Remaining external prerequisites are SignPath Foundation
+approval, SignPath GitHub App/project provisioning, an independent reviewer,
+an active `main` ruleset, the submitter token and organization variable, and
+confirmation that the issued certificate identity matches the updater's
+pinned publisher.
+
+`main` must be protected in GitHub repository settings with required pull
+requests, required `source-validation` and `windows-installer-rc` checks,
+conversation resolution, independent approval, and force-push / deletion
+blocking.
 
 The durable `.github/workflows/reconcile-v1.yml` workflow validates pull requests targeting `main` and source changes pushed to `main`; its historical filename is retained to avoid an unnecessary workflow-file rename during the post-release record update.

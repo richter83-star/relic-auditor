@@ -4,7 +4,7 @@ This policy defines who may approve signed Relic Auditor builds, what may be sig
 
 ## Status
 
-Relic Auditor v1.0.1 is publicly released but its Windows installer is **not Authenticode-signed**. Automatic updater installation therefore remains fail-closed. No document or policy statement changes that fact.
+Relic Auditor v1.0.1 is publicly released but its Windows installer is **not Authenticode-signed**. The validated v1.0.3 release candidate is also unsigned. Automatic updater installation therefore remains fail-closed. No document, workflow, or policy statement changes that fact.
 
 The preferred future signing provider is **SignPath Foundation** through its free open-source program, subject to project approval and all provider requirements. If approved and activated, Relic Auditor release pages will use the provider attribution required by SignPath Foundation:
 
@@ -28,7 +28,11 @@ Until additional maintainers are formally added, the repository owner fills the 
 - **Reviewer:** `@richter83-star`
 - **Signing approver:** `@richter83-star`
 
-`CODEOWNERS` records the current repository review owner. If a signing provider requires role separation, an additional trusted reviewer or approver must be added before signing is enabled. Provider controls take precedence over this temporary single-maintainer arrangement.
+`CODEOWNERS` records the current repository review owner. Production signing
+requires an independent trusted reviewer who is not the last pusher. That
+reviewer must be added to the repository and the relevant CODEOWNER entries
+before signing is enabled. The checked-in SignPath policy requires this
+separation and permits no bypass actor.
 
 ## What may be signed
 
@@ -75,6 +79,13 @@ A future signed Windows release must follow this order:
 10. Publish the signed stable updater manifest last.
 11. Verify that tampered, unsigned, stale, malformed, or wrong-publisher updates remain rejected.
 
+The managed workflow prepares and verifies a signed release candidate only. It
+does not create a tag, GitHub Release, package-index upload, public download, or
+stable update manifest.
+
 ## Current automatic-update gate
 
 Automatic updating must remain disabled until a trusted signing provider is active and the updater's pinned publisher and stable-manifest trust requirements are satisfied. An unsigned public release is manual-install only.
+
+See [SignPath Foundation release-signing setup](signpath-foundation-setup.md)
+for the exact external provisioning and first-run gates.

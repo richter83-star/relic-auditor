@@ -114,7 +114,7 @@ def test_workflow_freezes_exact_commit_and_uploads_verified_artifacts() -> None:
         encoding="utf-8"
     )
     assert "runs-on: windows-latest" in workflow
-    assert "build/v1.0.3-final-product" in workflow
+    assert "push:" not in workflow
     assert "git archive --format=zip --prefix=relic-auditor-1.0.3/" in workflow
     assert "Get-FileHash -LiteralPath $archive -Algorithm SHA256" in workflow
     assert "-ExpectedSourceSha256" in workflow
@@ -127,10 +127,94 @@ def test_workflow_freezes_exact_commit_and_uploads_verified_artifacts() -> None:
     assert re.search(r"WINDOWS_SIGNING_PFX_BASE64.*secrets", workflow)
 
 
+def test_signpath_workflow_is_manual_exact_head_and_fail_closed() -> None:
+    workflow = (
+        ROOT / ".github" / "workflows" / "windows-signpath-release.yml"
+    ).read_text(encoding="utf-8")
+    finalizer = (WINDOWS / "finalize-signed-release.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    assert "workflow_dispatch:" in workflow
+    assert "push:" not in workflow
+    assert "pull_request:" not in workflow
+    assert "if: github.ref == 'refs/heads/main'" in workflow
+    assert 'ref: ${{ github.sha }}' in workflow
+    assert 'WORKFLOW_REF -ne "refs/heads/main"' in workflow
+    assert "WORKFLOW_SOURCE_COMMIT.ToLowerInvariant() -ne $Expected" in workflow
+    assert 'git fetch --no-tags origin main' in workflow
+    assert "exact current main commit" in workflow
+    assert "actions/upload-artifact@v4" in workflow
+    assert "steps.upload-unsigned-installer.outputs.artifact-id" in workflow
+    assert "signpath/github-action-submit-signing-request@v2" in workflow
+    assert "project-slug: relic-auditor" in workflow
+    assert "signing-policy-slug: release-signing" in workflow
+    assert "artifact-configuration-slug: windows-installer" in workflow
+    assert '-ExpectedPublisher "Dracanus AI"' in workflow
+    assert "github release" not in workflow.lower()
+
+    for required in (
+        "ExpectedSourceCommit must be an exact 40-character commit SHA",
+        'Manifest.authenticode_status -ne "NotSigned"',
+        'Manifest.source_archive -ne "relic-auditor-1.0.3.zip"',
+        "unsigned installer no longer matches its lifecycle-test manifest",
+        "frozen source archive no longer matches the release manifest",
+        "provider-returned installer is byte-identical",
+        'Signature.Status.ToString() -ne "Valid"',
+        "ActualPublisher -cne $ExpectedPublisher",
+        "TimeStamperCertificate",
+        "signed installer smoke install failed",
+        'SignedVersion -ne "relic 1.0.3"',
+        "signed installer GUI smoke test failed",
+        "signed installer smoke uninstall failed",
+        "unsigned_installer_sha256",
+        "authenticode_thumbprint",
+        "signing_provider",
+        "signed_clean_install_smoke",
+        "signed_cli_smoke",
+        "signed_gui_smoke",
+        "signed_uninstall_smoke",
+    ):
+        assert required in finalizer
+
+
+def test_signpath_configuration_requires_trusted_build_and_review() -> None:
+    policy = (
+        ROOT
+        / ".signpath"
+        / "policies"
+        / "relic-auditor"
+        / "release-signing.yml"
+    ).read_text(encoding="utf-8")
+    artifact = (
+        ROOT / ".signpath" / "artifact-configurations" / "windows-installer.xml"
+    ).read_text(encoding="utf-8")
+    codeowners = (ROOT / ".github" / "CODEOWNERS").read_text(encoding="utf-8")
+
+    for required in (
+        "require_github_hosted: true",
+        "disallow_reruns: true",
+        "restrict_deletions: true",
+        "block_force_pushes: true",
+        "min_required_approvals: 1",
+        "dismiss_stale_reviews_on_push: true",
+        "require_code_owner_review: true",
+        "require_last_push_approval: true",
+        "require_review_thread_resolution: true",
+        "allow_bypass_actors: false",
+    ):
+        assert required in policy
+    assert 'parameter name="version"' in artifact
+    assert 'path="Relic-Auditor-Setup-${version}-x64.exe"' in artifact
+    assert "<authenticode-sign />" in artifact
+    assert "/.signpath/** @richter83-star" in codeowners
+
+
 def test_validation_workflows_do_not_persist_checkout_credentials() -> None:
     workflows = (
         ROOT / ".github" / "workflows" / "windows-installer.yml",
         ROOT / ".github" / "workflows" / "reconcile-v1.yml",
+        ROOT / ".github" / "workflows" / "windows-signpath-release.yml",
     )
     for path in workflows:
         workflow = path.read_text(encoding="utf-8")
