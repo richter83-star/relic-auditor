@@ -41,3 +41,9 @@ Use PowerShell to calculate the installer SHA-256 and compare it with `SHA256SUM
 ## Code signing
 
 The release manifest records the Authenticode status. Unsigned artifacts are internal test builds. Relic's updater remains fail-closed and does not enable automatic installation unless the installer and update metadata satisfy the configured trust policy.
+
+Managed release signing accepts only the lifecycle-tested unsigned installer,
+then verifies the provider-returned Authenticode status, timestamp, pinned
+publisher, SHA-256, size, and exact source commit before producing a signed RC.
+It also clean-installs, launch-smokes, and uninstalls the signed bytes. The
+signing workflow does not publish or enable an update by itself.
