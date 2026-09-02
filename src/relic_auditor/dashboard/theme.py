@@ -353,6 +353,13 @@ QLabel#emptyTitle {{
     font-size: {t.body_lg}pt;
     font-weight: 700;
 }}
+QLabel#answerConclusion {{
+    color: {p.text};
+    font-family: {t.display};
+    font-size: {t.display_lg}pt;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+}}
 QLabel#emptyBody {{ color: {p.text_dim}; }}
 QLabel#emptyMarker {{
     color: {p.slate};

@@ -53,6 +53,8 @@ MAX_ACTION_FILE_BYTES = 8 * 1024 * 1024
 MAX_PROCESS_OUTPUT_CHARS = 200_000
 MAX_ARG_COUNT = 256
 MAX_ARG_CHARS = 32_768
+_JSON_LOCKS_GUARD = threading.Lock()
+_JSON_LOCKS: dict[Path, threading.RLock] = {}
 
 
 @dataclass(frozen=True)
@@ -73,11 +75,18 @@ def _now() -> str:
     return datetime.now(UTC).isoformat().replace("+00:00", "Z")
 
 
+def _json_lock_for(path: Path) -> threading.RLock:
+    key = path.expanduser().resolve()
+    with _JSON_LOCKS_GUARD:
+        return _JSON_LOCKS.setdefault(key, threading.RLock())
+
+
 def _atomic_json(path: Path, value: Mapping[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
-    temporary.write_bytes(canonical_bytes(value))
-    os.replace(temporary, path)
+    with _json_lock_for(path):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        temporary.write_bytes(canonical_bytes(value))
+        os.replace(temporary, path)
 
 
 def _default_process_runner(

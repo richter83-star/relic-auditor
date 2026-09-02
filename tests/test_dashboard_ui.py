@@ -30,6 +30,7 @@ from relic_auditor.audit import audit_estate  # noqa: E402
 from relic_auditor.dashboard import components, theme  # noqa: E402
 from relic_auditor.dashboard.core import DashboardBundle, DashboardOptions  # noqa: E402
 from relic_auditor.dashboard.qt_app import RelicWindow  # noqa: E402
+from relic_auditor.dashboard.flow import FlowState  # noqa: E402
 from relic_auditor.llm.schemas import LLMReasoningResult  # noqa: E402
 
 
@@ -149,6 +150,9 @@ def test_claude_max_label_not_horizontally_clipped(window, app) -> None:
 
 
 def test_sidebar_scrolls_when_content_exceeds_viewport(window, app) -> None:
+    window.open_settings()
+    window.settings_tabs.setCurrentWidget(window.settings_reasoning_tab)
+    app.processEvents()
     _laid_out(window, app, 1280, 720)
     scroll = window.sidebar_scroll
     assert scroll.widgetResizable()
@@ -163,6 +167,9 @@ def test_sidebar_scrolls_when_content_exceeds_viewport(window, app) -> None:
 def test_no_horizontal_scrollbar_in_sidebar(window, app) -> None:
     """Unnecessary horizontal scrollbars were a listed v0.8 defect."""
 
+    window.open_settings()
+    window.settings_tabs.setCurrentWidget(window.settings_reasoning_tab)
+    app.processEvents()
     _laid_out(window, app, 1280, 720)
     assert (
         window.sidebar_scroll.horizontalScrollBarPolicy()
@@ -176,6 +183,9 @@ def test_no_horizontal_scrollbar_in_sidebar(window, app) -> None:
 def test_provider_panel_stays_reachable(window, app) -> None:
     """Provider status must never fall permanently below the window."""
 
+    window.open_settings()
+    window.settings_tabs.setCurrentWidget(window.settings_reasoning_tab)
+    app.processEvents()
     for width, height in ((1280, 720), (1366, 768)):
         _laid_out(window, app, width, height)
         card = window.provider_card
@@ -365,19 +375,14 @@ def test_metric_grid_reflows_to_what_actually_fits(window, app) -> None:
         previous = columns
 
 
-def test_panels_stack_vertically_at_minimum_width(window, app) -> None:
+def test_technical_evidence_remains_full_width_at_minimum_width(window, app) -> None:
     _laid_out(window, app, 1600, 900)
-    assert window.body_splitter.orientation() == Qt.Orientation.Horizontal
-    # Still horizontal just above the stack breakpoint...
+    assert not hasattr(window, "body_splitter")
+    assert window.tabs.isVisible()
     _laid_out(window, app, 1000, 700)
-    assert window.body_splitter.orientation() == Qt.Orientation.Horizontal
-    # ...and stacked below it, with both panes given real height.
+    assert window.tabs.isVisible()
     _laid_out(window, app, 960, 700)
-    assert window.body_splitter.orientation() == Qt.Orientation.Vertical
-    sizes = window.body_splitter.sizes()
-    assert all(size > 100 for size in sizes), (
-        f"stacked panes collapsed: {sizes}"
-    )
+    assert window.tabs.width() > 700
 
 
 # 5. Table resize behaviour -------------------------------------------------
@@ -452,6 +457,8 @@ def test_long_path_does_not_widen_window_beyond_minimum(window, app) -> None:
 
 
 def test_long_profile_name_does_not_clip_layout(window, app) -> None:
+    window.open_settings()
+    window.settings_tabs.setCurrentWidget(window.settings_reasoning_tab)
     window.use_llm.setChecked(True)
     window.llm_provider.setCurrentIndex(1)  # configured profile
     app.processEvents()
@@ -608,17 +615,32 @@ def test_cancel_leaves_target_unchanged(window, app) -> None:
 
 def test_keyboard_focus_reaches_primary_controls(window, app) -> None:
     _laid_out(window, app, 1600, 900)
-    focusable = [
-        window.target_selector.field,
-        window.mode,
-        window.include_hidden,
-        window.use_llm,
-        window.run_button,
-    ]
-    for widget in focusable:
+
+    window.open_technical_details()
+    assert window.shell_stack.currentWidget() is window.technical_shell
+    window.open_settings()
+    window.settings_tabs.setCurrentWidget(window.settings_scan_tab)
+    app.processEvents()
+    for widget in (window.mode, window.include_hidden):
         assert widget.focusPolicy() != Qt.FocusPolicy.NoFocus, (
             f"{widget.accessibleName() or widget} is not keyboard reachable"
         )
+        widget.setFocus()
+        app.processEvents()
+        assert widget.hasFocus()
+
+    window.settings_tabs.setCurrentWidget(window.settings_reasoning_tab)
+    app.processEvents()
+    assert window.use_llm.focusPolicy() != Qt.FocusPolicy.NoFocus
+    window.use_llm.setFocus()
+    app.processEvents()
+    assert window.use_llm.hasFocus()
+
+    window.close_secondary_surface()
+    window.target_selector.set_path(tempfile.gettempdir())
+    app.processEvents()
+    for widget in (window.target_selector.field, window.run_button):
+        assert widget.focusPolicy() != Qt.FocusPolicy.NoFocus
         widget.setFocus()
         app.processEvents()
         assert widget.hasFocus()
@@ -663,7 +685,7 @@ def test_bundle_loads_into_every_view(window, app) -> None:
 def test_all_original_tabs_preserved(window) -> None:
     titles = [window.tabs.tabText(i).split(" (")[0] for i in range(window.tabs.count())]
     for expected in (
-        "Overview",
+        "Evidence Summary",
         "System Map",
         "Technical Truth",
         "Recommended Actions",
@@ -712,37 +734,41 @@ def test_launch_dashboard_retains_its_window(app) -> None:
     )
 
 
-def test_default_product_shell_has_exactly_three_sections(app) -> None:
+def test_default_product_shell_is_focused_scan_state(app) -> None:
     win = RelicWindow()
     win.show()
     app.processEvents()
     try:
         assert win.shell_stack.currentWidget() is win.product_shell
-        assert [
-            win.primary_tabs.tabText(index)
-            for index in range(win.primary_tabs.count())
-        ] == ["Scan", "Results", "Reports"]
+        assert not hasattr(win, "primary_tabs")
+        assert win.flow_stack.count() == 7
+        assert win.flow_stack.currentWidget() is win.scan_page
+        assert win.flow.state is FlowState.NO_TARGET
         assert not win.provider_card.isVisible()
         assert not win.tabs.isVisible()
         assert win.mode.currentData() == "full"
-        assert win.workflow_step_badge.text() == "STEP 1 OF 5"
-        assert win.workflow_action_button.text() == "Choose folder"
+        assert win.run_button.text() == "SCAN THIS FOLDER"
+        assert not win.run_button.isEnabled()
+        assert win.history_button.isVisible()
+        assert win.settings_button.isVisible()
+        assert not win.update_button.isVisible()
     finally:
         win.close()
         win.deleteLater()
         app.processEvents()
 
 
-def test_guided_workflow_advances_when_target_is_selected(app, tmp_path) -> None:
+def test_focused_flow_advances_when_target_is_selected(app, tmp_path) -> None:
     win = RelicWindow()
     win.show()
     app.processEvents()
     try:
         win.target_selector.set_path(str(tmp_path))
         app.processEvents()
-        assert win.workflow_step_badge.text() == "STEP 2 OF 5"
-        assert win.workflow_step_title.text() == "Run the audit"
-        assert win.workflow_action_button.text() == "Run audit"
+        assert win.flow.state is FlowState.TARGET_SELECTED
+        assert win.flow_stack.currentWidget() is win.scan_page
+        assert win.run_button.isEnabled()
+        assert win.source_reassurance.isVisible()
     finally:
         win.close()
         win.deleteLater()
@@ -758,7 +784,9 @@ def test_technical_details_is_progressive_disclosure(app) -> None:
         app.processEvents()
         assert win.shell_stack.currentWidget() is win.technical_shell
         assert win.tabs.isVisible()
-        assert win.provider_card.isVisible()
+        assert not win.provider_card.isVisible()
+        assert not win.technical_shell.isAncestorOf(win.mode)
+        assert not win.technical_shell.isAncestorOf(win.provider_card)
         win.close_technical_details()
         app.processEvents()
         assert win.shell_stack.currentWidget() is win.product_shell
