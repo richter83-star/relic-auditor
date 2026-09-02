@@ -14,6 +14,8 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
+. (Join-Path $PSScriptRoot "certificate-trust.ps1")
+
 if ($ExpectedSourceCommit -notmatch '^[0-9a-fA-F]{40}$') {
     throw "ExpectedSourceCommit must be an exact 40-character commit SHA."
 }
@@ -129,6 +131,10 @@ if ($ActualPublisher -cne $ExpectedPublisher) {
 if ($null -eq $Signature.TimeStamperCertificate) {
     throw "The provider-returned installer is not Authenticode timestamped."
 }
+Assert-TrustedCertificateChain `
+    -Certificate $Signature.TimeStamperCertificate `
+    -ApplicationPolicyOid "1.3.6.1.5.5.7.3.8" `
+    -CertificatePurpose "timestamp"
 
 $SignedInstallRoot = Join-Path (
     [System.IO.Path]::GetTempPath()
@@ -203,6 +209,8 @@ $Manifest | Add-Member -NotePropertyName "authenticode_publisher" -NotePropertyV
 $Manifest | Add-Member -NotePropertyName "authenticode_subject" -NotePropertyValue $Signature.SignerCertificate.Subject
 $Manifest | Add-Member -NotePropertyName "authenticode_thumbprint" -NotePropertyValue $Signature.SignerCertificate.Thumbprint.ToLowerInvariant()
 $Manifest | Add-Member -NotePropertyName "authenticode_timestamp_subject" -NotePropertyValue $Signature.TimeStamperCertificate.Subject
+$Manifest | Add-Member -NotePropertyName "authenticode_timestamp_thumbprint" -NotePropertyValue $Signature.TimeStamperCertificate.Thumbprint.ToLowerInvariant()
+$Manifest | Add-Member -NotePropertyName "authenticode_timestamp_chain" -NotePropertyValue "trusted"
 $Manifest | Add-Member -NotePropertyName "signing_provider" -NotePropertyValue $SigningProvider
 $Manifest | Add-Member -NotePropertyName "signed_clean_install_smoke" -NotePropertyValue "passed"
 $Manifest | Add-Member -NotePropertyName "signed_cli_smoke" -NotePropertyValue "passed"

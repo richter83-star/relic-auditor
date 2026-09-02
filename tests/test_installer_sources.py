@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
 from pathlib import Path
 
 
@@ -110,6 +112,7 @@ def test_clean_install_and_uninstall_are_release_gates() -> None:
 
 
 def test_workflow_freezes_exact_commit_and_uploads_verified_artifacts() -> None:
+    """The legacy RC workflow must preserve the frozen-source release gate."""
     workflow = (ROOT / ".github" / "workflows" / "windows-installer.yml").read_text(
         encoding="utf-8"
     )
@@ -121,13 +124,14 @@ def test_workflow_freezes_exact_commit_and_uploads_verified_artifacts() -> None:
     assert '-SourceCommit "${{ github.sha }}"' in workflow
     assert "releases/relic-auditor-1.0.3.zip" in workflow
     assert "SkipSourceTests" not in workflow
-    assert "actions/upload-artifact@v4" in workflow
+    assert "uses: actions/upload-artifact@" in workflow
     assert "Relic-Auditor-1.0.3-RC-Windows-x64" in workflow
     assert "persist-credentials: false" in workflow
     assert re.search(r"WINDOWS_SIGNING_PFX_BASE64.*secrets", workflow)
 
 
 def test_signpath_workflow_is_manual_exact_head_and_fail_closed() -> None:
+    """Managed signing must bind one reviewed main commit and fail closed."""
     workflow = (
         ROOT / ".github" / "workflows" / "windows-signpath-release.yml"
     ).read_text(encoding="utf-8")
@@ -144,9 +148,9 @@ def test_signpath_workflow_is_manual_exact_head_and_fail_closed() -> None:
     assert "WORKFLOW_SOURCE_COMMIT.ToLowerInvariant() -ne $Expected" in workflow
     assert 'git fetch --no-tags origin main' in workflow
     assert "exact current main commit" in workflow
-    assert "actions/upload-artifact@v4" in workflow
+    assert "uses: actions/upload-artifact@" in workflow
     assert "steps.upload-unsigned-installer.outputs.artifact-id" in workflow
-    assert "signpath/github-action-submit-signing-request@v2" in workflow
+    assert "uses: signpath/github-action-submit-signing-request@" in workflow
     assert "project-slug: relic-auditor" in workflow
     assert "signing-policy-slug: release-signing" in workflow
     assert "artifact-configuration-slug: windows-installer" in workflow
@@ -163,6 +167,7 @@ def test_signpath_workflow_is_manual_exact_head_and_fail_closed() -> None:
         'Signature.Status.ToString() -ne "Valid"',
         "ActualPublisher -cne $ExpectedPublisher",
         "TimeStamperCertificate",
+        "Assert-TrustedCertificateChain",
         "signed installer smoke install failed",
         'SignedVersion -ne "relic 1.0.3"',
         "signed installer GUI smoke test failed",
@@ -179,6 +184,7 @@ def test_signpath_workflow_is_manual_exact_head_and_fail_closed() -> None:
 
 
 def test_signpath_configuration_requires_trusted_build_and_review() -> None:
+    """SignPath policy files must require a protected, reviewed trusted build."""
     policy = (
         ROOT
         / ".signpath"
@@ -211,6 +217,7 @@ def test_signpath_configuration_requires_trusted_build_and_review() -> None:
 
 
 def test_validation_workflows_do_not_persist_checkout_credentials() -> None:
+    """Every checkout step must explicitly discard its workflow credential."""
     workflows = (
         ROOT / ".github" / "workflows" / "windows-installer.yml",
         ROOT / ".github" / "workflows" / "reconcile-v1.yml",
@@ -218,6 +225,103 @@ def test_validation_workflows_do_not_persist_checkout_credentials() -> None:
     )
     for path in workflows:
         workflow = path.read_text(encoding="utf-8")
-        assert workflow.count("uses: actions/checkout@v4") == workflow.count(
-            "persist-credentials: false"
+        checkout_steps = re.findall(
+            r"^\s*uses:\s*actions/checkout@[^\s#]+", workflow, re.MULTILINE
         )
+        assert len(checkout_steps) == workflow.count("persist-credentials: false")
+
+
+def test_all_external_workflow_actions_are_immutable() -> None:
+    """Repository policy rejects every mutable external GitHub Action ref."""
+    workflow_paths = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
+    assert workflow_paths
+    for path in workflow_paths:
+        workflow = path.read_text(encoding="utf-8")
+        external_uses = re.findall(
+            r"^\s*uses:\s*([^@\s]+)@([^\s#]+)", workflow, re.MULTILINE
+        )
+        assert external_uses, f"{path.name} must declare at least one action"
+        for action, ref in external_uses:
+            assert re.fullmatch(r"[0-9a-f]{40}", ref), (
+                f"{path.name} uses mutable action ref {action}@{ref}"
+            )
+
+
+def test_signed_release_finalizer_rejects_untrusted_timestamp_chain(
+    tmp_path: Path,
+) -> None:
+    """An untrusted timestamp certificate must fail the Windows chain gate."""
+    trust_script = WINDOWS / "certificate-trust.ps1"
+    trust_source = trust_script.read_text(encoding="utf-8")
+    finalizer = (WINDOWS / "finalize-signed-release.ps1").read_text(
+        encoding="utf-8"
+    )
+
+    for required in (
+        "X509Chain]::new()",
+        "X509RevocationMode]::Online",
+        "X509RevocationFlag]::ExcludeRoot",
+        "X509VerificationFlags]::NoFlag",
+        "ApplicationPolicy.Add",
+        "if (-not $Chain.Build($Certificate))",
+        "does not chain to a trusted root",
+    ):
+        assert required in trust_source
+    assert '-ApplicationPolicyOid "1.3.6.1.5.5.7.3.8"' in finalizer
+    assert '-CertificatePurpose "timestamp"' in finalizer
+
+    if sys.platform != "win32":
+        return
+
+    probe = tmp_path / "reject-untrusted-timestamp.ps1"
+    probe.write_text(
+        f"""
+. '{trust_script.as_posix()}'
+$Rsa = [System.Security.Cryptography.RSA]::Create(2048)
+try {{
+    $Request = [System.Security.Cryptography.X509Certificates.CertificateRequest]::new(
+        "CN=Relic Untrusted Timestamp Test",
+        $Rsa,
+        [System.Security.Cryptography.HashAlgorithmName]::SHA256,
+        [System.Security.Cryptography.RSASignaturePadding]::Pkcs1
+    )
+    $Policies = [System.Security.Cryptography.OidCollection]::new()
+    [void]$Policies.Add([System.Security.Cryptography.Oid]::new("1.3.6.1.5.5.7.3.8"))
+    $Request.CertificateExtensions.Add(
+        [System.Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension]::new(
+            $Policies,
+            $false
+        )
+    )
+    $Certificate = $Request.CreateSelfSigned(
+        [DateTimeOffset]::UtcNow.AddMinutes(-1),
+        [DateTimeOffset]::UtcNow.AddMinutes(5)
+    )
+    try {{
+        Assert-TrustedCertificateChain `
+            -Certificate $Certificate `
+            -ApplicationPolicyOid "1.3.6.1.5.5.7.3.8" `
+            -CertificatePurpose "timestamp"
+        throw "The untrusted timestamp certificate was accepted."
+    }}
+    catch {{
+        if ($_.Exception.Message -notlike "*does not chain to a trusted root*") {{
+            throw
+        }}
+    }}
+    finally {{
+        $Certificate.Dispose()
+    }}
+}}
+finally {{
+    $Rsa.Dispose()
+}}
+""".strip(),
+        encoding="utf-8",
+    )
+    subprocess.run(
+        ["pwsh", "-NoProfile", "-NonInteractive", "-File", str(probe)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
