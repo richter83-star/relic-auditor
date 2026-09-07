@@ -4,11 +4,20 @@ Relic Auditor is a local-first software-estate appraisal and controlled build-pr
 
 The core safety rule has not changed: **Relic does not import, install, execute, modify, move, rename, or delete scanned target code.** Scanned repositories are evidence, not execution environments.
 
-## Current release: v1.0.1
+## Current product version: v1.0.3
 
-v1.0.1 reunifies the validated v0.12 production-foundation line with the later Resurrection and Technical Truth work that had accidentally developed on a disconnected Git history.
+The authoritative `main` branch contains the merged and validated **v1.0.3 Focused Flow** product.
 
-The unified line preserves:
+**Release status**
+
+- **Source:** v1.0.3 is current on `main`.
+- **Windows candidate:** v1.0.3 has passed source, frozen-source, GUI/CLI packaging, clean-install, upgrade, configuration-preservation, uninstall, and read-only-target validation.
+- **Latest public installer:** v1.0.1 remains available for manual installation while the v1.0.3 signing application is reviewed.
+- **Signing:** SignPath Foundation has received the project application; production signing and stable automatic updates remain disabled until approval and certificate verification are complete.
+
+GitHub currently labels v1.0.1 as **Latest** because it is the most recent published release. That label will move to v1.0.3 when the signed v1.0.3 release is published; the unsigned release candidate will not be substituted for the final signed artifact.
+
+v1.0.3 preserves:
 
 - Technical Truth static analysis and evidence grounding
 - Product Opportunity / Resurrection analysis
@@ -19,7 +28,7 @@ The unified line preserves:
 - fail-closed updater and pinned trust-root infrastructure
 - Windows GUI, CLI, installer, upgrade, cleanup, and uninstall lifecycle
 
-It also adds the standalone Resurrection command:
+It includes the standalone Resurrection command:
 
 ```bash
 relic resurrect /path/to/estate --output /path/to/resurrection-report
@@ -27,19 +36,23 @@ relic resurrect /path/to/estate --output /path/to/resurrection-report
 
 Resurrection evaluates whether a partially built codebase contains a substantive, connected product core worth salvaging. Its deterministic evidence gate can force `TOSS_IT`; optional LLM reasoning may interpret the bounded evidence but cannot override missing evidence or invent source paths. Market context is currently **offline heuristic context**, not live market research.
 
-The reconciliation history and validation rules are documented in [docs/v1.0.1-reconciliation.md](docs/v1.0.1-reconciliation.md). Release changes are summarized in [docs/v1.0.1-release-notes.md](docs/v1.0.1-release-notes.md), with upgrade guidance in [docs/v1.0.1-upgrade.md](docs/v1.0.1-upgrade.md). The public release is available at [GitHub Release v1.0.1](https://github.com/richter83-star/relic-auditor/releases/tag/v1.0.1).
-
-## Development candidate: v1.0.3 Focused Flow
-
 v1.0.3 preserves the v1.0.1 engines and security boundaries while replacing the desktop's permanent Scan / Results / Reports tabs with one state-driven journey:
 
 **Scan → Answer → Prepare → Build**
 
 History and Settings are quiet header utilities. Technical Evidence remains a complete expert console, but appears only when the user deliberately asks for proof. v1.0.3 compresses opportunity comparison and keeps contextual evidence scoped to the opportunity being inspected. See [docs/focused-flow.md](docs/focused-flow.md) and [docs/v1.0.3-release-notes.md](docs/v1.0.3-release-notes.md).
 
+## Previous public release: v1.0.1
+
+v1.0.1 is the currently downloadable Windows release and remains unsigned and manual-install only. Its reconciliation history, release notes, and upgrade guidance are documented in [docs/v1.0.1-reconciliation.md](docs/v1.0.1-reconciliation.md), [docs/v1.0.1-release-notes.md](docs/v1.0.1-release-notes.md), and [docs/v1.0.1-upgrade.md](docs/v1.0.1-upgrade.md). Download it from [GitHub Release v1.0.1](https://github.com/richter83-star/relic-auditor/releases/tag/v1.0.1).
+
 ## Code signing policy
 
-Relic Auditor's Windows signing governance is documented in [docs/code-signing-policy.md](docs/code-signing-policy.md). The public v1.0.1 installer remains unsigned and manual-install only. The preferred future route is SignPath Foundation's open-source signing program, subject to provider approval; automatic updating remains fail-closed until trusted signing and stable-manifest requirements are satisfied.
+Relic Auditor's Windows signing governance is documented in [docs/code-signing-policy.md](docs/code-signing-policy.md). The public v1.0.1 installer remains unsigned and manual-install only. The v1.0.3 application to SignPath Foundation's open-source signing program has been received and is under review; automatic updating remains fail-closed until trusted signing and stable-manifest requirements are satisfied.
+
+Planned provider attribution after approval:
+
+> Free code signing provided by SignPath.io, certificate by SignPath Foundation
 
 ## Product flow
 
@@ -109,13 +122,13 @@ Run the product-opportunity pipeline:
 relic audit /path/to/estate --product-discovery
 ```
 
-Run the v1.0.1 salvageability / Resurrection analysis:
+Run the salvageability / Resurrection analysis:
 
 ```bash
 relic resurrect /path/to/estate --output /path/to/resurrection-report
 ```
 
-The standalone `relic resurrect` command is the supported v1.0.1 interface. `audit --resurrection` is not part of the current compatibility contract.
+The standalone `relic resurrect` command is the supported interface. `audit --resurrection` is not part of the current compatibility contract.
 
 ## Technical Truth
 
@@ -224,7 +237,7 @@ Packaged Windows builds use a fail-closed update path. A candidate update must p
 2. declared filename, size, and SHA-256 verification; and
 3. a valid Authenticode signature from the pinned publisher trust policy.
 
-The public v1.0.1 Windows installer is unsigned and therefore **not eligible for automatic updater installation**. Production signing and a trusted stable manifest remain automatic-update gates; manual installation is the supported v1.0.1 path.
+The latest published Windows installer, v1.0.1, is unsigned and therefore **not eligible for automatic updater installation**. The validated v1.0.3 candidate is awaiting SignPath approval and is not yet a public release. Production signing and a trusted stable manifest remain automatic-update gates; manual installation is the supported v1.0.1 path until those gates pass.
 
 See [docs/updater.md](docs/updater.md).
 
@@ -244,4 +257,4 @@ python -m pytest -q --ignore=tests/fixtures
 
 The Windows release workflow additionally freezes the exact commit, hashes the source archive, reruns source tests from the frozen archive, builds both GUI and CLI executables, performs bundled and installed smoke tests, exercises clean install and in-place upgrade, verifies stale-runtime cleanup and config preservation, then verifies uninstall and PATH cleanup.
 
-Release and publication evidence is recorded in [BUILD-STATUS.md](BUILD-STATUS.md) and [releases/v1.0.1/PUBLICATION.json](releases/v1.0.1/PUBLICATION.json). The `v1.0.1` tag and GitHub Release are tied to the exact validated release commit. The unsigned public installer remains manual-install only; the automatic updater stays fail-closed until trusted signing and stable-manifest infrastructure are provisioned.
+Current v1.0.3 validation and signing-readiness evidence is recorded in [BUILD-STATUS.md](BUILD-STATUS.md). Published v1.0.1 evidence remains in [releases/v1.0.1/PUBLICATION.json](releases/v1.0.1/PUBLICATION.json). The unsigned public installer remains manual-install only; the automatic updater stays fail-closed until the signed v1.0.3 release and trusted stable manifest are provisioned.
