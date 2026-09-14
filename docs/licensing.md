@@ -1,7 +1,40 @@
 # Signed plan licensing
 
-Relic Auditor v0.12.0 contains the client half of a commercial entitlement
-system. It fails closed to Free.
+Relic Auditor defaults to Free. Paid activation is not yet provisioned, but
+owner and invited testing can use a signed, installation-bound offline license.
+
+## Owner testing and offline activation
+
+1. In **Settings → Plan → Manage plan**, select **Copy installation ID**.
+2. Send that ID to the issuer. It is a random identifier, not a password or
+   hardware serial number.
+3. Import the returned file with **Import license file**. The plan badge and
+   active scan update immediately. Restarting Relic preserves valid access.
+4. **Remove license from this device** returns the installation to Free.
+
+The equivalent CLI commands are:
+
+```powershell
+relic license device
+relic license import .\owner.relic-license
+relic license status
+relic license pricing
+```
+
+Owner licenses do not use the unprovisioned online activation endpoint. Their
+public issuer key is pinned separately from production purchase and updater
+keys. The private owner key stays outside the repository, source archives,
+installer, and CI. A public installation ID alone cannot unlock a plan.
+
+The administrative `tools/issue_owner_license.py` issues up to 90 days of
+Premium access using that separately held Ed25519 key. It requires the exact
+installation ID, a subject, and a destination outside the repository. It
+refuses to overwrite an existing grant. Renew an offline grant by importing a
+new signed file; commercial online refresh is not used for owner testing.
+
+[Plans and pricing](pricing.md) is the shared destination linked by the app,
+CLI and README. Public checkout and paid activation remain unavailable until
+prices and purchase-to-license delivery are configured.
 
 ## Trust boundary
 
@@ -43,9 +76,9 @@ exists only as an explicit code-level test boundary.
 
 ## Provisioning required before sales
 
-The repository intentionally contains no production public key yet. That means
-this release candidate displays Free and reports that activation is not
-provisioned. Before selling Premium, Dracanus AI must:
+The repository contains an owner-test public verification key, but no commercial
+activation public key yet. New installations stay on Free until a valid signed
+license is imported. Before selling Premium, Dracanus AI must:
 
 1. create the activation service at the configured HTTPS endpoint;
 2. hold the Ed25519 private key in a managed KMS/HSM;

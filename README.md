@@ -210,7 +210,14 @@ Production defaults to Free and there is no CLI flag that promotes an entitlemen
 
 Signed entitlements and OS credential storage are documented in [docs/licensing.md](docs/licensing.md) and [docs/entitlements-and-privacy.md](docs/entitlements-and-privacy.md).
 
-Production paid activation is not provisioned in v1.0.3. The desktop therefore presents Free, Pro coming soon, and Premium coming soon without exposing inactive license-key controls; the underlying entitlement boundary continues to fail closed.
+See [plans and pricing](docs/pricing.md) for availability and plan details. The
+desktop's **View plans & pricing** button opens the same page.
+
+Owner testing can activate Premium with an installation-bound signed offline
+license: open **Settings → Plan → Manage plan**, copy the installation ID for
+the issuer, then **Import license file**. The verified plan is stored in the OS
+credential vault and survives restart. Public checkout and commercial online
+activation are not yet provisioned. See [licensing](docs/licensing.md).
 
 ## Optional LLM reasoning
 

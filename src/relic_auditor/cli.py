@@ -43,9 +43,12 @@ from .build_packs.service import (
 from .product_discovery.entitlements import Entitlement, FREE_ENTITLEMENT
 from .licensing import (
     PRODUCTION_PUBLIC_KEYS,
+    TRUSTED_PUBLIC_KEYS,
+    PRICING_URL,
     KeyringLicenseStore,
     activate_license,
     deactivate_license,
+    import_license_file,
     installation_id,
     load_cached_entitlement,
     refresh_license,
@@ -282,6 +285,15 @@ def build_parser() -> argparse.ArgumentParser:
         "status", help="show the current non-sensitive product entitlement"
     )
     license_status.add_argument("--json", action="store_true")
+    license_device = license_actions.add_parser(
+        "device", help="show the installation ID needed for a signed offline license"
+    )
+    license_device.add_argument("--json", action="store_true")
+    license_import = license_actions.add_parser(
+        "import", help="verify and import a signed offline license file"
+    )
+    license_import.add_argument("file", type=Path)
+    license_actions.add_parser("pricing", help="print the official plans and pricing URL")
     license_activate = license_actions.add_parser(
         "activate", help="activate a license using the OS credential vault"
     )
@@ -372,9 +384,10 @@ def main(
     parser = build_parser()
     args = parser.parse_args(argv)
     keys = PRODUCTION_PUBLIC_KEYS if license_public_keys is None else license_public_keys
+    offline_keys = TRUSTED_PUBLIC_KEYS if license_public_keys is None else license_public_keys
     store = license_store or KeyringLicenseStore()
     active_entitlement = entitlement or load_cached_entitlement(
-        public_keys=keys,
+        public_keys=offline_keys,
         store=store,
         device_id=license_device_id,
     )
@@ -385,6 +398,7 @@ def main(
             args,
             active_entitlement,
             public_keys=keys,
+            offline_public_keys=offline_keys,
             store=store,
             opener=license_opener,
             device_id=license_device_id,
@@ -783,11 +797,27 @@ def _handle_license_command(
     entitlement: Entitlement,
     *,
     public_keys,
+    offline_public_keys,
     store,
     opener=None,
     device_id: str | None = None,
 ) -> int:
     try:
+        if args.license_action == "pricing":
+            print(PRICING_URL)
+            return 0
+        if args.license_action == "device":
+            value = device_id or installation_id()
+            print(json.dumps({"device_id": value}) if args.json else value)
+            return 0
+        if args.license_action == "import":
+            activated = import_license_file(
+                args.file, public_keys=offline_public_keys, store=store,
+                device_id=device_id,
+            )
+            print(f"Relic {activated.tier.value.title()} activated for this installation.")
+            print(f"Offline entitlement valid until: {activated.valid_until}")
+            return 0
         if args.license_action == "status":
             payload = entitlement.public()
             if args.json:

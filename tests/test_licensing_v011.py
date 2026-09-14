@@ -17,6 +17,7 @@ from relic_auditor.licensing import (
     LicenseToken,
     LicenseVerificationError,
     activate_license,
+    import_license_file,
     load_cached_entitlement,
     refresh_license,
     verify_license_token,
@@ -165,6 +166,90 @@ def test_cached_license_loads_and_invalid_cache_falls_back_to_free(signing) -> N
 
 def test_unprovisioned_release_remains_free() -> None:
     assert load_cached_entitlement(public_keys={}, store=MemoryStore(), device_id=DEVICE).tier == ProductTier.FREE
+
+
+def test_offline_import_persists_verified_license_and_survives_restart(signing, tmp_path) -> None:
+    private, keys = signing
+    now = datetime.now(UTC)
+    path = tmp_path / "owner.relic-license"
+    path.write_text(json.dumps(_token(private, now=now)), encoding="utf-8")
+    store = MemoryStore()
+    activated = import_license_file(path, public_keys=keys, store=store, device_id=DEVICE)
+    assert activated.tier == ProductTier.PREMIUM
+    assert load_cached_entitlement(public_keys=keys, store=store, device_id=DEVICE).tier == ProductTier.PREMIUM
+    from relic_auditor.licensing import deactivate_license
+    deactivate_license(store=store)
+    assert load_cached_entitlement(public_keys=keys, store=store, device_id=DEVICE).tier == ProductTier.FREE
+
+
+@pytest.mark.parametrize("invalid", ["tampered", "wrong-device", "expired", "untrusted"])
+def test_offline_import_rejects_bad_grants_without_overwriting_license(signing, tmp_path, invalid) -> None:
+    private, keys = signing
+    now = datetime.now(UTC)
+    token = _token(private, now=now)
+    if invalid == "tampered":
+        token["claims"]["subject"] = "changed"
+    elif invalid == "wrong-device":
+        token = _token(private, now=now, device="device_" + "b" * 32)
+    elif invalid == "expired":
+        token = _token(private, now=now - timedelta(days=40))
+    else:
+        token["key_id"] = "untrusted"
+    path = tmp_path / "owner.json"
+    path.write_text(json.dumps(token), encoding="utf-8")
+    store = MemoryStore()
+    store.set("previous-license")
+    with pytest.raises(LicenseVerificationError):
+        import_license_file(path, public_keys=keys, store=store, device_id=DEVICE)
+    assert store.value == "previous-license"
+
+
+@pytest.mark.parametrize("content", [b"not-json", b"[]", b"\xff", b'{"claims":{},"claims":{}}', b" " * (128 * 1024 + 1)])
+def test_offline_import_rejects_malformed_or_oversized_files(signing, tmp_path, content) -> None:
+    _, keys = signing
+    path = tmp_path / "owner.json"
+    path.write_bytes(content)
+    store = MemoryStore()
+    with pytest.raises(LicenseVerificationError):
+        import_license_file(path, public_keys=keys, store=store, device_id=DEVICE)
+    assert store.value is None
+
+
+def test_offline_import_handles_vault_failure(signing, tmp_path) -> None:
+    from relic_auditor.licensing import LicenseStorageError
+    private, keys = signing
+    path = tmp_path / "owner.json"
+    path.write_text(json.dumps(_token(private, now=datetime.now(UTC))))
+    class UnavailableStore(MemoryStore):
+        def set(self, value):
+            raise LicenseStorageError("vault unavailable")
+    with pytest.raises(LicenseStorageError):
+        import_license_file(path, public_keys=keys, store=UnavailableStore(), device_id=DEVICE)
+
+
+def test_offline_license_cli_device_import_status_and_pricing(signing, tmp_path, capsys) -> None:
+    from relic_auditor.cli import main
+    from relic_auditor.licensing import PRICING_URL
+    private, keys = signing
+    store = MemoryStore()
+    kwargs = dict(license_public_keys=keys, license_store=store, license_device_id=DEVICE)
+    assert main(["license", "device", "--json"], **kwargs) == 0
+    assert json.loads(capsys.readouterr().out) == {"device_id": DEVICE}
+    path = tmp_path / "owner.json"
+    path.write_text(json.dumps(_token(private, now=datetime.now(UTC))))
+    assert main(["license", "import", str(path)], **kwargs) == 0
+    assert "Premium activated" in capsys.readouterr().out
+    assert main(["license", "status", "--json"], **kwargs) == 0
+    assert json.loads(capsys.readouterr().out)["tier"] == "premium"
+    assert main(["license", "pricing"], **kwargs) == 0
+    assert capsys.readouterr().out.strip() == PRICING_URL
+
+
+def test_default_online_activation_stays_unprovisioned_with_owner_trust() -> None:
+    from relic_auditor.licensing import TRUSTED_PUBLIC_KEYS
+    assert TRUSTED_PUBLIC_KEYS
+    with pytest.raises(LicenseActivationError, match="not provisioned"):
+        activate_license("RELIC_LICENSE_12345", app_version="1.0.3", device_id=DEVICE)
 
 
 def test_dashboard_bundle_preserves_the_verified_entitlement(tmp_path) -> None:
