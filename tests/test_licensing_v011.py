@@ -204,7 +204,11 @@ def test_offline_import_rejects_bad_grants_without_overwriting_license(signing, 
     assert store.value == "previous-license"
 
 
-@pytest.mark.parametrize("content", [b"not-json", b"[]", b"\xff", b'{"claims":{},"claims":{}}', b" " * (128 * 1024 + 1)])
+@pytest.mark.parametrize(
+    "content",
+    [b"not-json", b"[]", b"\xff", b'{"claims":{},"claims":{}}', b" " * (128 * 1024 + 1)],
+    ids=["not-json", "array", "invalid-utf8", "duplicate-fields", "oversized"],
+)
 def test_offline_import_rejects_malformed_or_oversized_files(signing, tmp_path, content) -> None:
     _, keys = signing
     path = tmp_path / "owner.json"
