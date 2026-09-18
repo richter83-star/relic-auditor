@@ -42,7 +42,12 @@ Normal users receive the decision. Experts deliberately request the proof throug
 
 ## Plan presentation
 
-The signed entitlement engine remains fail-closed. Because paid production activation is not provisioned, the v1.0.3 plan dialog contains no license-key field, Activate button, Deactivate button, or engineering placeholder. It presents Free and marks Pro and Premium as coming soon.
+The signed entitlement engine remains fail-closed. Manage plan links to the
+official plans and pricing page and supports importing a signed offline owner
+or invited-test license. Copy installation ID supplies the issuer with the
+device binding; import and removal immediately update the active plan. Public
+checkout and commercial online activation remain unavailable. No editable
+tier switch or universal owner password is provided.
 
 Free, Pro, and Premium users can inspect Answer, choose an opportunity, and review the Prepare screen. Premium is checked only when **Create Build Pack** is requested. UI simplification never grants that capability: domain services still independently enforce Build Pack preparation and export, so manipulating widgets cannot authorize it.
 

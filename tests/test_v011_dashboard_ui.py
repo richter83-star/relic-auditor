@@ -92,7 +92,7 @@ def test_supervisor_has_five_steps_and_no_preapproved_capabilities(tmp_path: Pat
         app.processEvents()
 
 
-def test_plan_ui_hides_unprovisioned_activation_infrastructure() -> None:
+def test_plan_ui_offers_offline_activation_and_pricing() -> None:
     app = _app()
     dialog = LicenseDialog(FREE_ENTITLEMENT)
     assert dialog.badge.text() == "PLAN: FREE"
@@ -101,8 +101,45 @@ def test_plan_ui_hides_unprovisioned_activation_infrastructure() -> None:
     assert "COMING SOON" in dialog.premium_card.title_label.text()
     assert dialog.findChildren(QLineEdit) == []
     assert not hasattr(dialog, "activate_button")
-    assert not hasattr(dialog, "deactivate_button")
+    assert dialog.import_button.isEnabled()
+    assert dialog.deactivate_button.isHidden()
+    with patch("relic_auditor.dashboard.license_dialog.QDesktopServices.openUrl", return_value=True) as opener:
+        dialog.pricing_button.click()
+        assert opener.call_args.args[0].toString().endswith("/docs/pricing.md")
     dialog.deleteLater()
+    app.processEvents()
+
+
+def test_plan_import_updates_window_and_deactivation_restores_free(tmp_path: Path) -> None:
+    import json
+    from datetime import UTC, datetime
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+    from test_licensing_v011 import DEVICE, MemoryStore, _token
+    from relic_auditor.dashboard.qt_app import RelicWindow
+    app = _app()
+    private = Ed25519PrivateKey.generate()
+    public = private.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw)
+    store = MemoryStore()
+    path = tmp_path / "owner.json"
+    path.write_text(json.dumps(_token(private, now=datetime.now(UTC))))
+    window = RelicWindow(entitlement=FREE_ENTITLEMENT)
+    dialog = LicenseDialog(FREE_ENTITLEMENT, store=store, public_keys={"test-key": public}, device_id=DEVICE)
+    dialog.entitlement_changed.connect(window._entitlement_changed)
+    dialog.copy_device_button.click()
+    assert QApplication.clipboard().text() == DEVICE
+    assert dialog.apply_license_file(path)
+    assert dialog.badge.text() == "PLAN: PREMIUM"
+    assert window.plan_badge.text() == "PLAN: PREMIUM"
+    assert window.entitlement.tier.value == "premium"
+    path.write_text("invalid")
+    assert not dialog.apply_license_file(path)
+    assert window.entitlement.tier.value == "premium"
+    dialog.remove_license()
+    assert store.value is None
+    assert window.plan_badge.text() == "PLAN: FREE"
+    dialog.deleteLater()
+    window.deleteLater()
     app.processEvents()
 
 

@@ -5,6 +5,7 @@ import json
 import os
 import platform
 import re
+import stat
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -22,7 +23,7 @@ from .product_discovery.entitlements import (
     FREE_ENTITLEMENT,
     ProductTier,
 )
-from .trust_roots import PRODUCTION_LICENSE_PUBLIC_KEYS
+from .trust_roots import OWNER_LICENSE_PUBLIC_KEYS, PRODUCTION_LICENSE_PUBLIC_KEYS
 
 
 LICENSE_SCHEMA = 1
@@ -38,6 +39,9 @@ KEYRING_ACCOUNT = "active-entitlement"
 # KMS-held signing key's public half is pinned here. Private signing material is
 # never generated, stored, or distributed with the desktop application.
 PRODUCTION_PUBLIC_KEYS = PRODUCTION_LICENSE_PUBLIC_KEYS
+TRUSTED_PUBLIC_KEYS = {**OWNER_LICENSE_PUBLIC_KEYS, **PRODUCTION_PUBLIC_KEYS}
+
+PRICING_URL = "https://github.com/richter83-star/relic-auditor/blob/main/docs/pricing.md"
 
 
 class LicenseError(RuntimeError):
@@ -361,9 +365,58 @@ def activate_license(
     return entitlement
 
 
+def import_license_file(
+    path: Path,
+    *,
+    public_keys: Mapping[str, bytes] = TRUSTED_PUBLIC_KEYS,
+    store: SecretStore | None = None,
+    device_id: str | None = None,
+    now: datetime | None = None,
+) -> Entitlement:
+    """Verify an offline grant before replacing the credential-vault token.
+
+    Import never contacts the activation service and never accepts a public key
+    supplied by the file. Invalid imports leave the active license untouched.
+    """
+    if not public_keys:
+        raise LicenseActivationError("offline license activation is not provisioned in this build")
+    target = Path(path)
+    info = target.stat()
+    if not stat.S_ISREG(info.st_mode):
+        raise LicenseVerificationError("license must be a regular file")
+    if info.st_size > MAX_LICENSE_RESPONSE_BYTES:
+        raise LicenseVerificationError("license file is oversized")
+    with target.open("rb") as handle:
+        raw = handle.read(MAX_LICENSE_RESPONSE_BYTES + 1)
+    if len(raw) > MAX_LICENSE_RESPONSE_BYTES:
+        raise LicenseVerificationError("license file is oversized")
+
+    def unique_fields(pairs):
+        result = {}
+        for key, value in pairs:
+            if key in result:
+                raise LicenseVerificationError("license file contains duplicate fields")
+            result[key] = value
+        return result
+
+    try:
+        value = json.loads(raw.decode("utf-8-sig"), object_pairs_hook=unique_fields)
+        if not isinstance(value, dict):
+            raise LicenseVerificationError("license file must contain a signed token")
+        entitlement = verify_license_token(
+            value, public_keys=public_keys, device_id=device_id or installation_id(), now=now
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, RecursionError) as exc:
+        raise LicenseVerificationError("license file is not valid JSON") from exc
+    (store or KeyringLicenseStore()).set(
+        json.dumps(value, separators=(",", ":"), sort_keys=True)
+    )
+    return entitlement
+
+
 def load_cached_entitlement(
     *,
-    public_keys: Mapping[str, bytes] = PRODUCTION_PUBLIC_KEYS,
+    public_keys: Mapping[str, bytes] = TRUSTED_PUBLIC_KEYS,
     store: SecretStore | None = None,
     device_id: str | None = None,
     now: datetime | None = None,
